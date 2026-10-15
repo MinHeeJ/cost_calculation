@@ -4,11 +4,41 @@ import { SharedWorkspace } from "../pages/shared/SharedWorkspace";
 import { useNavigation } from "../pages/shared/navigation";
 import { screenById, sharedRoutes } from "../pages/shared/registry";
 import { useNavigationConfirmation } from "../pages/shared/UnsavedChangesGuard";
+import { CommonCodeScreen } from "../screens/CommonCodeScreen";
+import { ExcelMapsPanel } from "../pages/excelmaps/ExcelMapsPanel";
+import { OperatingStandardsPanel } from "../pages/operatingstandards/OperatingStandardsPanel";
+import { CodeHistoryPanel } from "../pages/adminops/CodeHistoryPanel";
+import { invalidateCodes as invalidateExcelChoices } from "../pages/excelmaps/useCodes";
+import { invalidateCodes as invalidatePublicChoices } from "../pages/apiops/useCodes";
+
+const screenBodies = {
+  "UI-27": (
+    <CommonCodeScreen
+      panels={{
+        "excel-maps": <ExcelMapsPanel />,
+        "operating-standards": <OperatingStandardsPanel />,
+        "code-history": <CodeHistoryPanel />,
+      }}
+    />
+  ),
+};
 
 /** Keep browser history transitions behind the workspace's atomic confirmation port. */
 function WorkspaceRoute() {
   const { confirm, dialog } = useNavigationConfirmation();
   const pending = useRef<string>();
+  useEffect(() => {
+    // Feature adapters emit after commit, even if the subsequent GET fails.
+    const refreshChoices = (event: Event) => {
+      const group = (event as CustomEvent<{ group?: unknown }>).detail?.group;
+      if (typeof group !== "string" || !group) return;
+      invalidateExcelChoices(group);
+      invalidatePublicChoices(group);
+    };
+    window.addEventListener("codes-invalidated", refreshChoices);
+    return () =>
+      window.removeEventListener("codes-invalidated", refreshChoices);
+  }, []);
   const blocker = useBlocker(({ nextLocation }) => {
     const id =
       nextLocation.pathname === "/" ? "UI-16" : nextLocation.pathname.slice(1);
@@ -37,7 +67,7 @@ function WorkspaceRoute() {
 
   return (
     <>
-      <SharedWorkspace />
+      <SharedWorkspace screenBodies={screenBodies} />
       {dialog}
     </>
   );

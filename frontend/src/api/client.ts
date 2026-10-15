@@ -38,6 +38,17 @@ export async function request<T>(
       null,
     );
   }
+  if (response.status === 204) {
+    if (!response.headers.get("X-Request-Id")) {
+      throw new RequestError(
+        "응답 문의 번호가 없습니다.",
+        trace,
+        "client",
+        204,
+      );
+    }
+    return undefined as T;
+  }
   let body: ApiResponse<T> | ApiError;
   try {
     body = await response.json();

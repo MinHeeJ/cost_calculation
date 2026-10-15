@@ -4,6 +4,7 @@ import {
   configure,
   fireEvent,
   render,
+  renderHook,
   screen,
   waitFor,
   within,
@@ -11,6 +12,9 @@ import {
 import { createMemoryRouter, RouterProvider } from "react-router-dom";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { applicationRoutes } from "../../src/app/router";
+import { invalidateCodeChoices } from "../../src/pages/codegroups/api";
+import { useCodes as usePublicCodes } from "../../src/pages/apiops/useCodes";
+import { useCodes as useExcelCodes } from "../../src/pages/excelmaps/useCodes";
 import { useNavigation } from "../../src/pages/shared/navigation";
 import { useShortcuts } from "../../src/pages/shared/preferences";
 import { usePeriods } from "../../src/pages/shared/periods";
@@ -127,12 +131,19 @@ beforeEach(() => {
   vi.stubGlobal("innerWidth", 1440);
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockImplementation(() =>
+    vi.fn().mockImplementation((path: string) =>
       Promise.resolve(
         new Response(
           JSON.stringify({
             success: true,
-            data: menus,
+            data:
+              path === "/api/menus"
+                ? menus
+                : path === "/api/admin/operating-standards"
+                  ? { items: [], last_closed_ym: null }
+                  : path.startsWith("/api/admin/code-history?")
+                    ? { items: [], total: 0, page: 1, size: 50 }
+                    : [],
             meta: { requestId: "route-request" },
           }),
           { headers: { "X-Request-Id": "route-request" } },
@@ -153,7 +164,20 @@ it.each(ids)(
     expect(
       await screen.findByRole("heading", { name: `화면 ${id}`, level: 1 }),
     ).toBeVisible();
-    expect(screen.getByText("이 화면은 다음 단계에서 만듭니다.")).toBeVisible();
+    if (id === "UI-27") {
+      expect(await screen.findByTestId("common-code-screen")).toBeVisible();
+      expect(screen.getByRole("tab", { name: "코드" })).toHaveAttribute(
+        "aria-selected",
+        "true",
+      );
+      expect(
+        screen.queryByText("이 화면은 다음 단계에서 만듭니다."),
+      ).not.toBeInTheDocument();
+    } else {
+      expect(
+        screen.getByText("이 화면은 다음 단계에서 만듭니다."),
+      ).toBeVisible();
+    }
     expect(router.state.location.pathname).toBe(`/${id}`);
     expect(
       screen.getAllByRole("link", { name: "프로젝트·원가 관리" }),
@@ -250,4 +274,100 @@ it("뒤로 이동 취소는 URL·입력·탭·최근 순서를 보존하고 승�
   expect(
     await screen.findByRole("heading", { name: "화면 UI-03", level: 1 }),
   ).toBeVisible();
+});
+
+it("기존 메뉴의 공통코드는 네 API 패널을 같은 주소와 제목 아래 연결한다", async () => {
+  const router = mount("/UI-16");
+  await screen.findByRole("heading", { name: "화면 UI-16", level: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "업무" }));
+  fireEvent.click(await screen.findByRole("link", { name: "화면 UI-27" }));
+  expect(await screen.findByTestId("common-code-screen")).toBeVisible();
+  for (const [tab, region, path] of [
+    ["엑셀 표기 대응", "엑셀 표기 대응", "/api/admin/excel-maps"],
+    ["기준값", "기준값", "/api/admin/operating-standards"],
+    [
+      "변경 이력",
+      "변경 이력",
+      "/api/admin/code-history?page=1&size=50&sort=chg_at%2Cdesc",
+    ],
+  ]) {
+    fireEvent.click(screen.getByRole("tab", { name: tab }));
+    expect(await screen.findByRole("region", { name: region })).toBeVisible();
+    await waitFor(() =>
+      expect(fetch).toHaveBeenCalledWith(path, expect.any(Object)),
+    );
+    expect(router.state.location.pathname).toBe("/UI-27");
+    expect(
+      screen.getByRole("heading", { name: "화면 UI-27", level: 1 }),
+    ).toBeVisible();
+    expect(screen.queryByText(/연결되지 않았/)).not.toBeInTheDocument();
+  }
+  expect(
+    screen.queryByTestId("operating-standards-panel"),
+  ).not.toBeInTheDocument();
+  expect(
+    useNavigation.getState().tabs.filter((id) => id === "UI-27"),
+  ).toHaveLength(1);
+});
+
+it("모바일 UI-27은 업무 본문과 API를 실행하지 않고 기존 PC 안내를 보존한다", async () => {
+  vi.stubGlobal("innerWidth", 390);
+  mount("/UI-27");
+  await screen.findByText("PC에서 이용해 주세요");
+  expect(screen.queryByTestId("common-code-screen")).not.toBeInTheDocument();
+  expect(
+    vi.mocked(fetch).mock.calls.every(([path]) => path === "/api/menus"),
+  ).toBe(true);
+});
+
+it("연결된 대응 추가 창의 초안은 화면 이탈 취소 후 주소와 함께 유지된다", async () => {
+  const router = mount("/UI-27");
+  await screen.findByTestId("common-code-screen");
+  fireEvent.click(screen.getByRole("tab", { name: "엑셀 표기 대응" }));
+  fireEvent.click(await screen.findByRole("button", { name: "+ 대응 추가" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "엑셀 표기 대응 추가",
+  });
+  fireEvent.change(within(dialog).getByLabelText("엑셀 표기"), {
+    target: { value: "작성 중 표기" },
+  });
+  await waitFor(() =>
+    expect(useNavigation.getState().dirty["UI-27"]).toBe(true),
+  );
+  await act(async () => {
+    await router.navigate("/UI-16");
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "계속 작성" }));
+  await waitFor(() =>
+    expect(screen.queryByText("미저장 내용")).not.toBeInTheDocument(),
+  );
+  expect(router.state.location.pathname).toBe("/UI-27");
+  expect(screen.getByDisplayValue("작성 중 표기")).toBeVisible();
+  expect(screen.getByRole("tab", { name: "엑셀 표기 대응" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+});
+
+it("커밋 이벤트는 두 병합 선택 소비자 중 해당 그룹만 재조회하고 unmount 후 해제한다", async () => {
+  mount("/UI-16");
+  await screen.findByRole("heading", { name: "화면 UI-16", level: 1 });
+  const publicChoice = renderHook(() => usePublicCodes("JOB"));
+  const excelChoice = renderHook(() => useExcelCodes("JOB"));
+  const otherChoice = renderHook(() => usePublicCodes("POSITION"));
+  await waitFor(() => expect(publicChoice.result.current.loading).toBe(false));
+  await waitFor(() => expect(excelChoice.result.current.loading).toBe(false));
+  await waitFor(() => expect(otherChoice.result.current.loading).toBe(false));
+  const count = (path: string) =>
+    vi.mocked(fetch).mock.calls.filter(([url]) => url === path).length;
+  const before = count("/api/codes/JOB");
+  const other = count("/api/codes/POSITION");
+  act(() => invalidateCodeChoices("JOB"));
+  await waitFor(() => expect(count("/api/codes/JOB")).toBe(before + 2));
+  expect(count("/api/codes/POSITION")).toBe(other);
+  publicChoice.unmount();
+  excelChoice.unmount();
+  otherChoice.unmount();
+  act(() => invalidateCodeChoices("JOB"));
+  expect(count("/api/codes/JOB")).toBe(before + 2);
 });

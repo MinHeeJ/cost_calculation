@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.operatingstandards.OperatingStandardMapper">
+    <resultMap id="row" type="com.sicost.operatingstandards.OperatingStandardRow">
+        <result column="oprt_std_id" property="oprtStdId" />
+        <result column="aply_bgn_ym" property="aplyBgnYm" />
+        <result column="oprt_std_nm" property="oprtStdNm" />
+        <result column="num_val" property="numVal" />
+        <result column="txt_val" property="txtVal" />
+        <result column="unit_nm" property="unitNm" />
+        <result column="use_plc_desc" property="usePlcDesc" />
+    </resultMap>
+    <sql id="columns">
+        oprt_std_id, aply_bgn_ym, oprt_std_nm, num_val, txt_val, unit_nm, use_plc_desc
+    </sql>
+    <!-- PostgreSQL DISTINCT ON은 각 키의 현재월 이하 최신 행을 한 번만 선택한다. -->
+    <select id="selectCurrent" resultMap="row">
+        SELECT DISTINCT ON (oprt_std_id)
+            <include refid="columns" />
+        FROM cmn.oprt_std
+        WHERE aply_bgn_ym &lt;= #{month}
+        ORDER BY oprt_std_id ASC, aply_bgn_ym DESC
+    </select>
+    <select id="selectHistory" resultMap="row">
+        SELECT <include refid="columns" />
+        FROM cmn.oprt_std
+        WHERE oprt_std_id = #{key}
+        ORDER BY aply_bgn_ym DESC
+    </select>
+    <select id="selectLastClosedMonth" resultType="java.lang.String">
+        SELECT MAX(cls_ym)
+        FROM fin.mth_cls
+        WHERE cls_stts_cd = 'CLOSED'
+    </select>
+    <!-- 같은 월만 덮어쓰며 기존 행의 생성 감사와 메타는 보존한다. -->
+    <insert id="save">
+        INSERT INTO cmn.oprt_std (
+            oprt_std_id, aply_bgn_ym, oprt_std_nm,
+            num_val, txt_val, unit_nm, use_plc_desc, created_by
+        )
+        VALUES (
+            #{row.oprtStdId}, #{row.aplyBgnYm}, #{row.oprtStdNm},
+            #{row.numVal,jdbcType=NUMERIC}, #{row.txtVal,jdbcType=VARCHAR},
+            #{row.unitNm,jdbcType=VARCHAR}, #{row.usePlcDesc,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+        ON CONFLICT (oprt_std_id, aply_bgn_ym)
+        DO UPDATE SET
+            num_val = EXCLUDED.num_val,
+            txt_val = EXCLUDED.txt_val
+    </insert>
+    <insert id="appendHistory">
+        INSERT INTO cmn.cd_hist (
+            cd_grp_id, dtl_cd, cd_chg_ty_cd, item_nm, bfr_val, aft_val, chg_user_id
+        )
+        VALUES (
+            'PARAM', #{key}, 'UPDATE', #{month},
+            #{before,jdbcType=VARCHAR}, #{after,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+</mapper>

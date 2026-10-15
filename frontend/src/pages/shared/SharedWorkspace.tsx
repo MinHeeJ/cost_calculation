@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { App } from "../../app/App";
 import { RequestState } from "../../components/RequestState";
@@ -16,7 +16,11 @@ import {
 } from "./UnsavedChangesGuard";
 
 /** Mount once from wiring's route registry; no business screens or additional route aliases are registered here. */
-export function SharedWorkspace() {
+export function SharedWorkspace({
+  screenBodies = {},
+}: {
+  screenBodies?: Record<string, ReactNode>;
+}) {
   const result = useRequest(getMenus, "menus");
   const navigate = useNavigate();
   const location = useLocation();
@@ -100,7 +104,9 @@ export function SharedWorkspace() {
             groupName={group?.name}
             mobile={mobile}
             onDashboard={() => open("UI-16")}
-          />
+          >
+            {screenBodies[screen.screenId]}
+          </PlaceholderScreen>
         ) : (
           <RequestState
             loading={result.loading}

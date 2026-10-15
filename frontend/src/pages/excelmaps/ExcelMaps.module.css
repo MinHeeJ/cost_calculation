@@ -1,0 +1,45 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-12);
+  padding: var(--space-24);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+}
+.toolbar,
+.actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+}
+.toolbar {
+  justify-content: space-between;
+  flex-wrap: wrap;
+}
+.toolbar h2 {
+  font-size: var(--section-size);
+  line-height: var(--section-line);
+  font-weight: var(--section-weight);
+}
+.help {
+  color: var(--text-sub);
+  font-size: var(--caption-size);
+}
+.form {
+  display: grid;
+  gap: var(--space-12);
+}
+.form label {
+  display: grid;
+  gap: var(--space-4);
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+}
+.panel td:nth-child(3) {
+  min-width: 100px;
+}
+.panel td:nth-child(4) {
+  min-width: 200px;
+}

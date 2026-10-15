@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.codegroups.CodeGroupMapper">
+    <resultMap id="CodeGroupRow" type="com.sicost.codegroups.CodeGroupRow">
+        <result column="cd_grp_id" property="cdGrpId" />
+        <result column="cd_grp_nm" property="cdGrpNm" />
+        <result column="cd_grp_se_cd" property="cdGrpSeCd" />
+        <result column="attr1_nm" property="attr1Nm" />
+        <result column="attr2_nm" property="attr2Nm" />
+        <result column="attr3_nm" property="attr3Nm" />
+        <result column="sort_seq" property="sortSeq" />
+        <result column="use_yn" property="useYn" />
+        <result column="code_count" property="codeCount" />
+    </resultMap>
+    <resultMap id="AdminCodeRow" type="com.sicost.codegroups.AdminCodeRow">
+        <result column="cd_grp_id" property="cdGrpId" />
+        <result column="dtl_cd" property="dtlCd" />
+        <result column="cd_nm" property="cdNm" />
+        <result column="attr1_val" property="attr1Val" />
+        <result column="attr2_val" property="attr2Val" />
+        <result column="attr3_val" property="attr3Val" />
+        <result column="sort_seq" property="sortSeq" />
+        <result column="use_yn" property="useYn" />
+        <result column="aply_bgn_dt" property="aplyBgnDt" />
+    </resultMap>
+    <sql id="groupColumns">
+        g.cd_grp_id,
+        g.cd_grp_nm,
+        g.cd_grp_se_cd,
+        g.attr1_nm,
+        g.attr2_nm,
+        g.attr3_nm,
+        g.sort_seq,
+        g.use_yn,
+        (SELECT COUNT(*) FROM cmn.cd_dtl d WHERE d.cd_grp_id = g.cd_grp_id) AS code_count
+    </sql>
+    <select id="selectGroups" resultMap="CodeGroupRow">
+        SELECT <include refid="groupColumns" />
+        FROM cmn.cd_grp g
+        ORDER BY g.sort_seq, g.cd_grp_id
+    </select>
+    <select id="selectGroup" resultMap="CodeGroupRow">
+        SELECT <include refid="groupColumns" />
+        FROM cmn.cd_grp g
+        WHERE g.cd_grp_id = #{group}
+    </select>
+    <select id="selectCodes" resultMap="AdminCodeRow">
+        SELECT cd_grp_id,
+            dtl_cd,
+            cd_nm,
+            attr1_val,
+            attr2_val,
+            attr3_val,
+            sort_seq,
+            use_yn,
+            aply_bgn_dt
+        FROM cmn.cd_dtl
+        WHERE cd_grp_id = #{group}
+        ORDER BY sort_seq, dtl_cd
+    </select>
+    <insert id="insertGroup">
+        INSERT INTO cmn.cd_grp (
+            cd_grp_id, cd_grp_nm, cd_grp_se_cd, attr1_nm, attr2_nm, attr3_nm, sort_seq, use_yn, created_by
+        )
+        VALUES (
+            #{row.cdGrpId}, #{row.cdGrpNm}, 'BIZ', #{row.attr1Nm}, #{row.attr2Nm}, #{row.attr3Nm},
+            (SELECT COALESCE(MAX(sort_seq), 0) + 1 FROM cmn.cd_grp), 'Y', #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+    <insert id="insertCode">
+        INSERT INTO cmn.cd_dtl (
+            cd_grp_id,
+            dtl_cd,
+            cd_nm,
+            attr1_val,
+            attr2_val,
+            attr3_val,
+            sort_seq,
+            use_yn,
+            aply_bgn_dt, created_by
+        )
+        VALUES (
+            #{row.cdGrpId},
+            #{row.dtlCd},
+            #{row.cdNm},
+            #{row.attr1Val},
+            #{row.attr2Val},
+            #{row.attr3Val},
+            #{row.sortSeq},
+            #{row.useYn},
+            #{row.aplyBgnDt}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+    <update id="updateCode">
+        UPDATE cmn.cd_dtl
+        <set>
+            <if test="changes.containsKey('cd_nm')">cd_nm = #{row.cdNm},</if>
+            <if test="changes.containsKey('attr1_val')">attr1_val = #{row.attr1Val},</if>
+            <if test="changes.containsKey('attr2_val')">attr2_val = #{row.attr2Val},</if>
+            <if test="changes.containsKey('attr3_val')">attr3_val = #{row.attr3Val},</if>
+            <if test="changes.containsKey('sort_seq')">sort_seq = #{row.sortSeq},</if>
+            <if test="changes.containsKey('use_yn')">use_yn = #{row.useYn},</if>
+            <if test="changes.containsKey('aply_bgn_dt')">aply_bgn_dt = #{row.aplyBgnDt},</if>
+            updated_by = #{actor,jdbcType=BIGINT},
+            updated_at = CURRENT_TIMESTAMP
+        </set>
+        WHERE cd_grp_id = #{row.cdGrpId}
+          AND dtl_cd = #{row.dtlCd}
+    </update>
+    <insert id="insertHistory">
+        INSERT INTO cmn.cd_hist (
+            cd_grp_id, dtl_cd, cd_chg_ty_cd, item_nm, bfr_val, aft_val, chg_user_id
+        )
+        VALUES (
+            #{group}, #{code,jdbcType=VARCHAR}, #{type}, #{item,jdbcType=VARCHAR},
+            #{before,jdbcType=VARCHAR}, #{after,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+</mapper>

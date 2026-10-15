@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { PanelsTopLeft, Monitor } from "lucide-react";
 import { Button } from "../../components/Button";
 import type { ScreenDefinition } from "./registry";
@@ -12,12 +13,14 @@ export function PlaceholderScreen({
   groupName,
   mobile = false,
   onDashboard,
+  children,
 }: {
   screen: ScreenDefinition;
   name: string;
   groupName?: string;
   mobile?: boolean;
   onDashboard: () => unknown;
+  children?: ReactNode;
 }) {
   if (mobile && !screen.mobile)
     return (
@@ -32,10 +35,12 @@ export function PlaceholderScreen({
       <TitleBar screenId={screen.screenId} name={name} groupName={groupName} />
       <div className={styles.page}>
         <PeriodBar screen={screen} />
-        <div className={styles.placeholder}>
-          <PanelsTopLeft size={32} strokeWidth={1.5} aria-hidden="true" />
-          <p>이 화면은 다음 단계에서 만듭니다.</p>
-        </div>
+        {children ?? (
+          <div className={styles.placeholder}>
+            <PanelsTopLeft size={32} strokeWidth={1.5} aria-hidden="true" />
+            <p>이 화면은 다음 단계에서 만듭니다.</p>
+          </div>
+        )}
       </div>
     </section>
   );

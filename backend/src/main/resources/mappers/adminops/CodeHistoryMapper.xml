@@ -1,0 +1,55 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.adminops.CodeHistoryMapper">
+    <resultMap id="row" type="com.sicost.adminops.CodeHistoryRow">
+        <result column="cd_hist_id" property="cdHistId" />
+        <result column="cd_grp_id" property="cdGrpId" />
+        <result column="dtl_cd" property="dtlCd" />
+        <result column="cd_chg_ty_cd" property="cdChgTyCd" />
+        <result column="item_nm" property="itemNm" />
+        <result column="bfr_val" property="bfrVal" />
+        <result column="aft_val" property="aftVal" />
+        <result column="chg_user_id" property="chgUserId" />
+        <result column="chg_at" property="chgAt" />
+        <result column="cd_grp_nm" property="cdGrpNm" />
+    </resultMap>
+    <sql id="historyFilter">
+        <where>
+            <if test="group != null">
+                h.cd_grp_id = #{group}
+            </if>
+        </where>
+    </sql>
+    <select id="groupExists" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM cmn.cd_grp
+            WHERE cd_grp_id = #{group}
+        )
+    </select>
+    <select id="countHistory" resultType="long">
+        SELECT COUNT(*)
+        FROM cmn.cd_hist h
+        <include refid="historyFilter" />
+    </select>
+    <select id="selectHistory" resultMap="row">
+        SELECT
+            h.cd_hist_id,
+            h.cd_grp_id,
+            h.dtl_cd,
+            h.cd_chg_ty_cd,
+            h.item_nm,
+            h.bfr_val,
+            h.aft_val,
+            h.chg_user_id,
+            h.chg_at,
+            CASE WHEN h.cd_grp_id = 'PARAM' THEN '기준값'
+                ELSE COALESCE(g.cd_grp_nm, h.cd_grp_id) END AS cd_grp_nm
+        FROM cmn.cd_hist h
+        LEFT JOIN cmn.cd_grp g ON g.cd_grp_id = h.cd_grp_id
+        <include refid="historyFilter" />
+        ORDER BY h.chg_at DESC, h.cd_hist_id DESC
+        LIMIT #{pageLimit}
+        OFFSET #{pageOffset}
+    </select>
+</mapper>
