@@ -1,0 +1,12 @@
+{
+  "repository": "https://github.com/MinHeeJ/cost_calculation",
+  "revision": "a7cc80e34d4e7eac0b774915bb30e1f4c7ac1ac9",
+  "source_path": "example/si_cost_schema_pg16_std.sql",
+  "source_sha256": "f654190eb098a554f24d79a43aae594f1b2ca2ac7df957c0af62a0c90931a32a",
+  "remote_byte_comparison": true,
+  "transformation": "Remove only source line 26: DROP SCHEMA ... CASCADE;",
+  "migration_sha256": {
+    "V1__schema.sql": "5b28db906fcc6dc932044277b0201fcf4888653270090ff612a70560ab8afc04",
+    "V2__seed_month_close.sql": "edda6ae44f63b51fa4d32d74fb3ac33c5ee955c8277e50d844e4a5b85c486b22"
+  }
+}

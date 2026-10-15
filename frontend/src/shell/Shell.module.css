@@ -1,0 +1,202 @@
+.app {
+  height: 100dvh;
+  display: grid;
+  grid-template-rows: var(--header-height) minmax(0, 1fr);
+}
+.header {
+  position: relative;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: var(--space-12);
+  height: var(--header-height);
+  padding: 0 var(--space-16);
+  background: var(--surface);
+  border-bottom: 1px solid var(--divider);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-8);
+  font-size: 15px;
+  white-space: nowrap;
+  text-decoration: none;
+  font-weight: var(--title-weight);
+  min-width: 0;
+}
+.headerActions {
+  position: relative;
+  display: flex;
+  gap: var(--space-8);
+  margin-left: auto;
+}
+.popover {
+  position: absolute;
+  z-index: 40;
+  right: 0;
+  top: calc(100% + var(--space-8));
+  width: min(280px, calc(100vw - var(--space-32)));
+  padding: var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-dropdown);
+}
+.logo {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-control);
+  background: var(--primary);
+  color: var(--surface);
+  font-size: var(--caption-size);
+  letter-spacing: 0.02em;
+}
+.header .iconButton,
+.header .userButton {
+  border-color: transparent;
+  background: transparent;
+  color: var(--text-sub);
+  padding: 0 var(--space-8);
+}
+.header .iconButton {
+  width: var(--control-height);
+  padding: 0;
+}
+.header .iconButton:hover,
+.header .userButton:hover,
+.header button[aria-expanded="true"] {
+  background: var(--header-bg);
+  color: var(--text);
+}
+.popover h2 {
+  font-size: var(--body-size);
+  font-weight: var(--section-weight);
+  padding-bottom: var(--space-12);
+  border-bottom: 1px solid var(--divider);
+}
+.notificationEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-12);
+  padding: var(--space-24) 0 var(--space-8);
+  color: var(--text-sub);
+}
+.settingField {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-16);
+  padding-top: var(--space-16);
+}
+.settingField select {
+  min-height: var(--control-height);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--text);
+  padding: 0 var(--space-8);
+}
+.body {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  position: relative;
+}
+.sidebar {
+  flex-shrink: 0;
+  width: var(--sidebar-width);
+  min-width: 0;
+  overflow: auto;
+  padding: var(--space-8);
+  background: var(--surface);
+  border-right: 1px solid var(--divider);
+}
+.collapsed {
+  width: var(--sidebar-collapsed);
+}
+.main {
+  flex: 1;
+  min-width: 0;
+  overflow: auto;
+  display: flex;
+  flex-direction: column;
+}
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: var(--space-24);
+}
+.tabs {
+  display: flex;
+  min-width: 0;
+  overflow-x: auto;
+  background: var(--surface);
+}
+.scrim {
+  display: none;
+}
+@media (min-width: 768px) and (max-width: 1279px) {
+  .sidebar {
+    width: var(--sidebar-collapsed);
+  }
+  .sidebar.expanded {
+    width: var(--sidebar-width);
+  }
+  .content {
+    padding: var(--space-16);
+  }
+}
+@media (max-width: 767px) {
+  .header {
+    gap: var(--space-4);
+    padding: 0 var(--space-12);
+  }
+  .brand {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: var(--body-size);
+  }
+  .logo,
+  .userChevron,
+  .userName {
+    display: none;
+  }
+  .headerActions {
+    gap: var(--space-4);
+  }
+  .header .iconButton {
+    min-width: var(--touch-height);
+  }
+  .sidebar {
+    position: fixed;
+    z-index: 46;
+    top: var(--header-height);
+    bottom: 0;
+    left: 0;
+    width: 100vw;
+    transform: translateX(-100%);
+    transition: transform 200ms ease;
+  }
+  .sidebar.mobileOpen {
+    transform: translateX(0);
+  }
+  .content {
+    padding: var(--space-16);
+  }
+  .tabs {
+    display: none;
+  }
+  .scrim {
+    position: fixed;
+    inset: var(--header-height) 0 0;
+    background: var(--scrim);
+    z-index: 45;
+  }
+  .scrim.open {
+    display: block;
+  }
+}

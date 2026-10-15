@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.shared.menu.MenuMapper">
+    <resultMap id="row" type="com.sicost.shared.menu.MenuRow">
+        <result column="menu_id" property="menuId" />
+        <result column="upr_menu_id" property="parentId" />
+        <result column="menu_nm" property="name" />
+        <result column="scrn_id" property="screenId" />
+        <result column="icon_nm" property="icon" />
+        <result column="mbl_expsr_yn" property="mobileYn" />
+        <result column="sort_seq" property="sortSeq" />
+    </resultMap>
+    <select id="selectActive" resultMap="row">
+        SELECT menu_id, upr_menu_id, menu_nm, scrn_id, icon_nm, mbl_expsr_yn, sort_seq
+        FROM sys.menu
+        WHERE use_yn = 'Y'
+        ORDER BY sort_seq ASC, menu_id ASC
+    </select>
+</mapper>

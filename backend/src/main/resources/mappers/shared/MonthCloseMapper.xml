@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.shared.monthclose.MonthCloseMapper">
+    <resultMap id="row" type="com.sicost.shared.monthclose.MonthCloseRow">
+        <result column="cls_ym" property="month" />
+        <result column="cls_stts_cd" property="status" />
+    </resultMap>
+    <select id="selectRange" resultMap="row">
+        SELECT cls_ym, cls_stts_cd
+        FROM fin.mth_cls
+        WHERE cls_ym &gt;= #{from}
+            AND cls_ym &lt;= #{to}
+        ORDER BY cls_ym ASC
+    </select>
+</mapper>
