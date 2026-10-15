@@ -9,6 +9,11 @@ export default defineConfig({
     include: [
       "tests/**/*.test.{ts,tsx}",
       "src/pages/shared/**/*.test.{ts,tsx}",
+      "src/pages/adminops/**/*.test.{ts,tsx}",
+      "src/pages/excelmaps/**/*.test.{ts,tsx}",
+      "src/pages/codegroups/**/*.test.{ts,tsx}",
+      "src/pages/operatingstandards/**/*.test.{ts,tsx}",
+      "src/screens/**/*.test.{ts,tsx}",
     ],
     restoreMocks: true,
   },

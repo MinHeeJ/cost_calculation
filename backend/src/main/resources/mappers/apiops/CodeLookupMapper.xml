@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.apiops.CodeLookupMapper">
+    <resultMap id="choice" type="com.sicost.apiops.CodeChoiceRow">
+        <result column="dtl_cd" property="code" />
+        <result column="cd_nm" property="name" />
+        <result column="attr1_val" property="attr1" />
+        <result column="attr2_val" property="attr2" />
+        <result column="attr3_val" property="attr3" />
+    </resultMap>
+    <resultMap id="parameter" type="com.sicost.apiops.ParameterRow">
+        <result column="oprt_std_id" property="key" />
+        <result column="aply_bgn_ym" property="month" />
+        <result column="oprt_std_nm" property="name" />
+        <result column="num_val" property="number" />
+        <result column="txt_val" property="text" />
+        <result column="unit_nm" property="unit" />
+        <result column="use_plc_desc" property="usage" />
+    </resultMap>
+    <select id="groupExists" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM cmn.cd_grp
+            WHERE cd_grp_id = #{group}
+        )
+    </select>
+    <select id="selectChoices" resultMap="choice">
+        SELECT dtl_cd,
+            cd_nm,
+            attr1_val,
+            attr2_val,
+            attr3_val
+        FROM cmn.cd_dtl
+        WHERE cd_grp_id = #{group}
+            AND use_yn = 'Y'
+        ORDER BY sort_seq ASC, dtl_cd ASC
+    </select>
+    <select id="selectParameter" resultMap="parameter">
+        SELECT oprt_std_id,
+            aply_bgn_ym,
+            oprt_std_nm,
+            num_val,
+            txt_val,
+            unit_nm,
+            use_plc_desc
+        FROM cmn.oprt_std
+        WHERE oprt_std_id = #{key}
+            AND aply_bgn_ym &lt;= #{month}
+        ORDER BY aply_bgn_ym DESC
+        LIMIT 1
+    </select>
+</mapper>

@@ -13,6 +13,22 @@ import org.springframework.web.servlet.resource.NoResourceFoundException;
 /** 오류는 직접 ApiError로 응답하고 내부 SQL·접속값·stacktrace를 노출하지 않는다. */
 @RestControllerAdvice
 public class GlobalExceptionHandler {
+    /** 서비스가 명시한 업무 오류만 공개하고 예상하지 못한 저장소 오류는 기존 500 처리로 남긴다. */
+    @ExceptionHandler(BusinessException.class)
+    public ResponseEntity<ApiError> business(BusinessException error, HttpServletRequest request) {
+        return ResponseEntity.status(error.status())
+            .body(ApiError.of(error.code(), error.getMessage(), error.field(), RequestIdFilter.requestId(request)));
+    }
+
+    /** JSON 구문·타입 오류는 입력 오류이며 Jackson 내부 메시지를 응답에 노출하지 않는다. */
+    @ExceptionHandler(org.springframework.http.converter.HttpMessageNotReadableException.class)
+    public ResponseEntity<ApiError> unreadable(
+        org.springframework.http.converter.HttpMessageNotReadableException ignored,
+        HttpServletRequest request
+    ) {
+        return error(400, "입력 형식을 확인해 주세요.", "body", request);
+    }
+
     @ExceptionHandler(ValidationException.class)
     public ResponseEntity<ApiError> validation(ValidationException error, HttpServletRequest request) {
         return error(400, error.getMessage(), error.field(), request);

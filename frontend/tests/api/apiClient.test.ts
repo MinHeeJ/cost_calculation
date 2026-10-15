@@ -6,6 +6,19 @@ import {
   request,
   api,
   RequestError,
+  getCodeGroups,
+  getAdminCodes,
+  createCodeGroup,
+  saveCodes,
+  getExcelMaps,
+  createExcelMap,
+  updateExcelMap,
+  getCodes,
+  getParam,
+  getCodeHistory,
+  getOperatingStandards,
+  getOperatingStandardHistory,
+  saveOperatingStandard,
 } from "../../src/api/apiClient";
 
 function ok(data: unknown) {
@@ -104,3 +117,129 @@ it("등록된 health도 헤더와 본문 ID 불일치를 서버 문의번호로 
   );
   await expect(getHealth()).rejects.toMatchObject({ source: "client" });
 });
+
+const group = "JOB";
+const standardKey = "VAT_RATE";
+const mapId = 42;
+it.each([
+  ["그룹", () => getCodeGroups(), "/api/admin/code-groups", []],
+  [
+    "관리 코드",
+    () => getAdminCodes(group),
+    `/api/admin/code-groups/${group}/codes`,
+    [],
+  ],
+  ["선택 코드", () => getCodes(group), `/api/codes/${group}`, []],
+  ["엑셀 대응", () => getExcelMaps(), "/api/admin/excel-maps", []],
+  [
+    "현재 기준값",
+    () => getOperatingStandards(),
+    "/api/admin/operating-standards",
+    { items: [], last_closed_ym: null },
+  ],
+  [
+    "전체 적용 이력",
+    () => getOperatingStandardHistory(standardKey),
+    `/api/admin/operating-standards/${standardKey}/history`,
+    [],
+  ],
+  [
+    "공통 기준값",
+    () => getParam(standardKey, "2026-10"),
+    `/api/params/${standardKey}?month=2026-10`,
+    { oprt_std_id: standardKey, num_val: 10 },
+  ],
+  [
+    "변경 이력",
+    () => getCodeHistory(group),
+    "/api/admin/code-history?page=1&size=50&sort=chg_at%2Cdesc&cd_grp_id=JOB",
+    { items: [], total: 0, page: 1, size: 50 },
+  ],
+] as const)(
+  "공개 registry의 %s는 계약 경로와 data 형태를 그대로 유지한다",
+  async (_name, call, path, data) => {
+    const fetcher = vi.fn().mockResolvedValue(ok(data));
+    vi.stubGlobal("fetch", fetcher);
+    await expect(call()).resolves.toEqual(data);
+    expect(fetcher).toHaveBeenCalledWith(
+      path,
+      expect.objectContaining({
+        headers: { "X-Request-Id": expect.any(String) },
+      }),
+    );
+    expect(fetcher).toHaveBeenCalledTimes(1);
+  },
+);
+
+const newGroup = { cd_grp_id: "DELIVERY", cd_grp_nm: "전달" };
+const newMap = {
+  excel_lbl_nm: "개발",
+  trns_cd_grp_id: group,
+  trns_cd: "BE",
+  map_role_cd: "MAIN" as const,
+};
+const mapChange = { rmrk_desc: null, use_yn: "N" as const };
+const standardChange = { aply_bgn_ym: "2026-10", num_val: 10 };
+it.each([
+  [
+    "그룹 추가",
+    () => createCodeGroup(newGroup),
+    "/api/admin/code-groups",
+    "POST",
+    newGroup,
+  ],
+  [
+    "전체 코드 저장",
+    () => saveCodes(group, []),
+    `/api/admin/code-groups/${group}/codes`,
+    "PUT",
+    { codes: [] },
+  ],
+  [
+    "대응 추가",
+    () => createExcelMap(newMap),
+    "/api/admin/excel-maps",
+    "POST",
+    newMap,
+  ],
+  [
+    "대응 변경",
+    () => updateExcelMap(mapId, mapChange),
+    `/api/admin/excel-maps/${mapId}`,
+    "PATCH",
+    mapChange,
+  ],
+  [
+    "기준값 저장",
+    () => saveOperatingStandard(standardKey, standardChange),
+    `/api/admin/operating-standards/${standardKey}`,
+    "PUT",
+    standardChange,
+  ],
+] as const)(
+  "공개 registry의 %s는 JSON payload와 204를 보존하며 재제출하지 않는다",
+  async (_name, call, path, method, body) => {
+    const response = new Response(null, {
+      status: 204,
+      headers: { "X-Request-Id": "write-request" },
+    });
+    const parse = vi.spyOn(response, "json");
+    const fetcher = vi.fn().mockResolvedValue(response);
+    vi.stubGlobal("fetch", fetcher);
+    await expect(call()).resolves.toBeUndefined();
+    expect(parse).not.toHaveBeenCalled();
+    expect(fetcher).toHaveBeenCalledTimes(1);
+    expect(fetcher).toHaveBeenCalledWith(
+      path,
+      expect.objectContaining({
+        method,
+        body: JSON.stringify(body),
+        headers: expect.objectContaining({
+          "X-Request-Id": expect.any(String),
+        }),
+      }),
+    );
+    const headers = new Headers(fetcher.mock.calls[0][1].headers);
+    expect(headers.get("Content-Type")).toBe("application/json");
+  },
+);

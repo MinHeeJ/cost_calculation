@@ -1,0 +1,43 @@
+.panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-12);
+  min-width: 0;
+  color: var(--text);
+}
+.toolbar {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+}
+.toolbar label {
+  font-size: var(--label-size);
+  font-weight: var(--label-weight);
+}
+.toolbar select {
+  width: 240px;
+  max-width: 100%;
+}
+.heading {
+  font-size: var(--section-size);
+  line-height: var(--section-line);
+  font-weight: var(--section-weight);
+}
+.results {
+  min-width: 0;
+  overflow: auto;
+  font-variant-numeric: tabular-nums;
+}
+.results > nav > select {
+  height: var(--control-height);
+  padding: 0 var(--space-8);
+  color: var(--text);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}

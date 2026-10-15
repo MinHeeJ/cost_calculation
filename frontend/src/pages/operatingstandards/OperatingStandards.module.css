@@ -1,0 +1,44 @@
+.panel {
+  display: grid;
+  gap: var(--space-16);
+  min-width: 0;
+}
+.panel h2 {
+  font-size: var(--section-size);
+  line-height: var(--section-line);
+}
+.actions {
+  display: flex;
+  gap: var(--space-8);
+  white-space: nowrap;
+}
+.form {
+  display: grid;
+  gap: var(--space-16);
+}
+.field {
+  display: grid;
+  grid-template-columns: var(--field-label-width) minmax(0, 1fr);
+  align-items: start;
+  gap: var(--space-8);
+}
+.field label {
+  padding-top: var(--space-8);
+  font-size: var(--label-size);
+}
+.metadata {
+  padding: var(--space-12);
+  border-radius: var(--radius-control);
+  background: var(--readonly-bg);
+  color: var(--text-sub);
+}
+.success {
+  padding: var(--space-12);
+  color: var(--success);
+  background: var(--success-bg);
+  border-radius: var(--radius-control);
+}
+.error {
+  color: var(--danger);
+  font-size: var(--caption-size);
+}
