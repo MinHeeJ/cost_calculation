@@ -1,0 +1,17 @@
+-- 월 마감 초기 상태. V1/V2 적용 후 변경은 새 버전으로만 추가한다.
+INSERT INTO fin.mth_cls (
+    cls_ym,
+    cls_stts_cd,
+    cls_at
+)
+VALUES
+    ('2026-01', 'CLOSED', TIMESTAMP '2026-02-05 00:00:00'),
+    ('2026-02', 'CLOSED', TIMESTAMP '2026-03-05 00:00:00'),
+    ('2026-03', 'CLOSED', TIMESTAMP '2026-04-05 00:00:00'),
+    ('2026-04', 'CLOSED', TIMESTAMP '2026-05-05 00:00:00'),
+    ('2026-05', 'CLOSED', TIMESTAMP '2026-06-05 00:00:00'),
+    ('2026-06', 'CLOSED', TIMESTAMP '2026-07-05 00:00:00'),
+    ('2026-07', 'CLOSED', TIMESTAMP '2026-08-05 00:00:00'),
+    ('2026-08', 'CLOSED', TIMESTAMP '2026-09-05 00:00:00'),
+    ('2026-09', 'CLOSED', TIMESTAMP '2026-10-05 00:00:00'),
+    ('2026-10', 'OPEN', NULL);

@@ -1,0 +1,45 @@
+.title {
+  font-size: var(--title-size);
+  line-height: var(--title-line);
+  font-weight: var(--title-weight);
+}
+.section {
+  font-size: var(--section-size);
+  line-height: var(--section-line);
+  font-weight: var(--section-weight);
+}
+.body {
+  font-size: var(--body-size);
+  line-height: var(--body-line);
+  font-weight: var(--body-weight);
+}
+.table {
+  font-size: var(--table-size);
+  line-height: var(--table-line);
+  font-weight: var(--table-weight);
+}
+.label {
+  font-size: var(--label-size);
+  line-height: var(--label-line);
+  font-weight: var(--label-weight);
+}
+.caption {
+  font-size: var(--caption-size);
+  line-height: var(--caption-line);
+  font-weight: var(--caption-weight);
+}
+.number {
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+.text {
+  text-align: left;
+}
+.code,
+.status,
+.date {
+  text-align: center;
+}
+.negative {
+  color: var(--danger);
+}

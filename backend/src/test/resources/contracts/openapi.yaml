@@ -1,0 +1,1602 @@
+openapi: 3.0.3
+info:
+  title: SI 프로젝트·원가 관리 기반 HTTP 계약
+  version: 0.1.0
+  description: BASIC-91 검토된 구현 인계. 무인증 GET3개, MyBatis, 원본 SQL·동일 시드·공통 응답 계약.
+security: []
+x-handoff-status: ready_for_review
+paths:
+  /api/menus:
+    get:
+      operationId: getMenus
+      summary: 사용 중 메뉴 트리 조회
+      security: []
+      x-related-requirements:
+      - REQ-074
+      - REQ-054
+      - REQ-055
+      - REQ-057
+      - REQ-039
+      responses:
+        '200':
+          description: 공통 성공 봉투, data는 아래 결과를 한 번만 포함한다.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/MenuNode'
+                  required:
+                  - data
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+      x-wire-contract-status: reviewed
+      x-pagination:
+        paginated: false
+        reason: 설정 메뉴 전체 트리
+      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을
+        404로 추정하지 않는다.
+      description: 무인증 sys.menu WHERE use_yn=Y, 부모별 sort_seq/menu_id 순 전체 트리. nullable
+        icon/screenId와 mobile 변환. data 배열.
+      x-business-rules:
+      - use_yn=Y만 반환하고 sort_seq 순으로 정렬한다(REQ-074)
+      - service DataScope 인자는 현재 ALL이며 역할 seed로 조회를 차단하지 않는다(REQ-039, REQ-002)
+      - 사용자 선택을 이어 MyBatis·blocking Mapper를 사용하고 sys.menu·fin.mth_cls만 런타임 매핑한다.
+      - 공통 성공 {success:true,data:결과,meta:{requestId}}, 실패 {success:false,code,message,field,requestId,meta:{requestId}}.
+        X-Request-Id와 일치.
+      - 메뉴는 전체2단트리·use_yn Y·부모별 sort_seq/menu_id 순. 트리와 health는 비페이지 조회다.
+      x-required-tests:
+      - 'happy: V1 sys.menu 묶음 10행·화면 31행으로 GET /api/menus 호출 -> menuId/name/screenId/icon/mobile/children
+        트리에서 화면 31개 관찰'
+      - 'auth: Authorization·세션 없이 메뉴 조회 -> 200; sys.role_menu_auth의 N으로 401/403 생성하지
+        않음'
+      - 'business: 격리 sys.menu에 use_yn=N 행과 서로 다른 sort_seq 구성 후 조회 -> N 노드 제외 및 Y
+        형제 노드 정렬 순서 관찰'
+      - 'side-effect: sys.menu 행·감사 필드 스냅샷 후 조회 -> 동일 행·필드 유지 및 service DataScope
+        ALL 관찰'
+      parameters: []
+  /api/month-close:
+    get:
+      operationId: getMonthClose
+      summary: 기간별 월마감 상태 조회
+      security: []
+      x-related-requirements:
+      - REQ-075
+      - REQ-022
+      - REQ-054
+      - REQ-055
+      - REQ-057
+      responses:
+        '200':
+          description: 공통 성공 봉투, data는 아래 결과를 한 번만 포함한다.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/MonthClose'
+                  required:
+                  - data
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+      x-wire-contract-status: reviewed
+      x-pagination:
+        paginated: false
+        reason: 요청한 from/to로 한정한 월 상태 배열
+      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을
+        404로 추정하지 않는다.
+      description: from/to 필수 YYYY-MM, from<=to; 지정 범위의 모든 월을 반환하고 누락 월은 OPEN. DB
+        INSERT 없음. data 배열.
+      parameters:
+      - $ref: '#/components/parameters/From'
+      - $ref: '#/components/parameters/To'
+      x-business-rules:
+      - fin.mth_cls.cls_stts_cd로 마감을 판정한다(REQ-022)
+      - 미존재 월은 OPEN으로 해석하되 조회로 행을 보충하지 않는다(REQ-075)
+      - 마감·해제 및 전월 조정 입력은 이번 명령 범위가 아니다(REQ-001)
+      - 사용자 선택을 이어 MyBatis·blocking Mapper를 사용하고 sys.menu·fin.mth_cls만 런타임 매핑한다.
+      - 공통 성공 {success:true,data:결과,meta:{requestId}}, 실패 {success:false,code,message,field,requestId,meta:{requestId}}.
+        X-Request-Id와 일치.
+      - from/to 필수 YYYY-MM·from<=to; 누락/형식/역전400(field). 조회 중 누락 월 OPEN은 반환만 하며 저장하지
+        않는다.
+      x-required-tests:
+      - 'happy: V2 후 GET /api/month-close?from=2026-09&to=2026-10 호출 -> month=2026-09/status=CLOSED
+        및 month=2026-10/status=OPEN 관찰'
+      - 'auth: 인증 없이 월마감 조회 -> 200; CLOSED라는 이유로 403 거부하지 않음'
+      - 'validation: from=2026-13&to=2026-10 호출 -> 400 및 ApiError.field=from 관찰'
+      - 'business: 격리 fixture에 요청 월 fin.mth_cls 행이 없는 상태로 상태 해석 호출 -> OPEN 관찰; HTTP
+        배열 확장 assertion은 OQ-003 승인까지 차단'
+      - 'side-effect: fin.mth_cls 행·cls_at/rls_at 스냅샷 후 조회 -> 기존 필드 동일 및 누락 월 새 행
+        없음 관찰'
+  /api/health:
+    get:
+      operationId: getHealth
+      summary: 서비스 상태 확인
+      security: []
+      x-related-requirements:
+      - REQ-076
+      - REQ-054
+      responses:
+        '200':
+          description: 공통 성공 봉투, data는 아래 결과를 한 번만 포함한다.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/Health'
+                  required:
+                  - data
+        '400':
+          description: 잘못된 요청
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+      description: 무인증 GET200. data={status:UP}. 세서비스 healthcheck 중 backend 경로.
+      x-response-body-status: 'OQ-007: 확인 필요; bodyless/JSON·data 미확정'
+      x-required-tests:
+      - 'happy: 인증 없는 GET /api/health 정상 호출 -> 200 및 비어 있지 않은 X-Request-Id 관찰'
+      x-wire-contract-status: reviewed
+      x-pagination:
+        paginated: false
+        reason: 단일 health 결과
+      parameters: []
+      x-business-rules:
+      - 사용자 선택을 이어 MyBatis·blocking Mapper를 사용하고 sys.menu·fin.mth_cls만 런타임 매핑한다.
+      - 공통 성공 {success:true,data:결과,meta:{requestId}}, 실패 {success:false,code,message,field,requestId,meta:{requestId}}.
+        X-Request-Id와 일치.
+      - 메뉴는 전체2단트리·use_yn Y·부모별 sort_seq/menu_id 순. 트리와 health는 비페이지 조회다.
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+  schemas:
+    ApiResponse:
+      type: object
+      required:
+      - success
+      - data
+      - meta
+      properties:
+        success:
+          type: boolean
+          enum:
+          - true
+        data: {}
+        meta:
+          $ref: '#/components/schemas/Meta'
+    ApiError:
+      type: object
+      required:
+      - success
+      - code
+      - message
+      - field
+      - requestId
+      - meta
+      properties:
+        success:
+          type: boolean
+          enum:
+          - false
+        code:
+          type: string
+        message:
+          type: string
+        field:
+          type: string
+          nullable: true
+        requestId:
+          type: string
+        meta:
+          $ref: '#/components/schemas/Meta'
+    EnumCmnCdGrpCdGrpSeCd:
+      type: string
+      enum:
+      - SYSTEM
+      - BIZ
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - cmn.cd_grp.cd_grp_se_cd
+    EnumCmnCdGrpUseYn:
+      type: string
+      enum:
+      - Y
+      - N
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - cmn.cd_grp.use_yn
+      - cmn.cd_dtl.use_yn
+      - cmn.excel_map.use_yn
+      - mst.ptnr.use_yn
+      - mst.bsn_part.hq_yn
+      - mst.bsn_part.use_yn
+      - sys.role.use_yn
+      - sys.menu.use_yn
+      - sys.menu.mbl_expsr_yn
+      - mst.dev.use_yn
+      - prj.prj.use_yn
+      - hr.cand.use_yn
+    EnumMstPtnrPtnrSeCd:
+      type: string
+      enum:
+      - CUST
+      - VEND
+      - BOTH
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - mst.ptnr.ptnr_se_cd
+    EnumSysRoleDataScopeCd:
+      type: string
+      enum:
+      - ALL
+      - PART
+      - PROJECT
+      - SELF
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - sys.role.data_scope_cd
+    EnumSysUserInfoUserSttsCd:
+      type: string
+      enum:
+      - ACTIVE
+      - LOCKED
+      - DISABLED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - sys.user_info.user_stts_cd
+    EnumSysUpldUpldSttsCd:
+      type: string
+      enum:
+      - APPLIED
+      - REJECTED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - sys.upld.upld_stts_cd
+    EnumMstDevEmpSeCd:
+      type: string
+      enum:
+      - FT
+      - CT
+      - FL
+      - OS
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - mst.dev.emp_se_cd
+      - cst.mth_cst.emp_se_cd
+    EnumMstDevDutySeCd:
+      type: string
+      enum:
+      - DIRECT
+      - INDIRECT
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - mst.dev.duty_se_cd
+    EnumBsnOpptBsnStgCd:
+      type: string
+      enum:
+      - DISC
+      - PROP
+      - NEGO
+      - PRE
+      - WON
+      - LOST
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bsn.oppt.bsn_stg_cd
+    EnumBsnOpptOpptSttsCd:
+      type: string
+      enum:
+      - OPEN
+      - WON
+      - LOST
+      - DELETED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bsn.oppt.oppt_stts_cd
+    EnumBsnOpptQuotAprvSttsCd:
+      type: string
+      enum:
+      - NONE
+      - PENDING
+      - APPROVED
+      - REJECTED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bsn.oppt.quot_aprv_stts_cd
+    EnumBsnQuotAprvHistAprvPrcsCd:
+      type: string
+      enum:
+      - REQUEST
+      - APPROVE
+      - REJECT
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bsn.quot_aprv_hist.aprv_prcs_cd
+    EnumPrjPrjCntrctTyCd:
+      type: string
+      enum:
+      - TK
+      - MO
+      - DP
+      - IN
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.prj.cntrct_ty_cd
+    EnumPrjPrjPrjSttsCd:
+      type: string
+      enum:
+      - PLAN
+      - RUN
+      - HOLD
+      - END
+      - LOST
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.prj.prj_stts_cd
+    EnumPrjCntrctChgHistCntrctChgTyCd:
+      type: string
+      enum:
+      - ADD
+      - CUT
+      - TERM
+      - FREE
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.cntrct_chg_hist.cntrct_chg_ty_cd
+    EnumPrjCntrctChgHistCntrctChgSttsCd:
+      type: string
+      enum:
+      - PLAN
+      - CONFIRM
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.cntrct_chg_hist.cntrct_chg_stts_cd
+    EnumPrjTkAlocLineAlocStgCd:
+      type: string
+      enum:
+      - EST
+      - FINAL
+      - ACTUAL
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.tk_aloc_line.aloc_stg_cd
+    EnumPrjTkAlocLineLineTyCd:
+      type: string
+      enum:
+      - PERSON
+      - ITEM
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.tk_aloc_line.line_ty_cd
+    EnumPrjIssueSvrtCd:
+      type: string
+      enum:
+      - HIGH
+      - MID
+      - LOW
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.issue.svrt_cd
+    EnumPrjIssueIssueSttsCd:
+      type: string
+      enum:
+      - OPEN
+      - DOING
+      - CLOSED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - prj.issue.issue_stts_cd
+    EnumAsgnAsgnAsgnSeCd:
+      type: string
+      enum:
+      - NEW
+      - ADD
+      - SUB
+      - MOV
+      - FREE
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.asgn.asgn_se_cd
+    EnumAsgnAsgnUntprcBaseCd:
+      type: string
+      enum:
+      - MONTH
+      - DAY
+      - HOUR
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.asgn.untprc_base_cd
+    EnumAsgnAsgnExtPsbltyCd:
+      type: string
+      enum:
+      - H
+      - M
+      - L
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.asgn.ext_psblty_cd
+    EnumAsgnAsgnAsgnSttsCd:
+      type: string
+      enum:
+      - ACTIVE
+      - ENDED
+      - REPLACED
+      - CANCELLED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.asgn.asgn_stts_cd
+    EnumAsgnAsgnChgHistAsgnChgTyCd:
+      type: string
+      enum:
+      - REPLACE
+      - EARLY_END
+      - RATE
+      - EXTEND
+      - PERIOD
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.asgn_chg_hist.asgn_chg_ty_cd
+    EnumAsgnTmprAsgnTmprAsgnSttsCd:
+      type: string
+      enum:
+      - ACTIVE
+      - RELEASED
+      - CONVERTED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - asgn.tmpr_asgn.tmpr_asgn_stts_cd
+    EnumHrCandCandSeCd:
+      type: string
+      enum:
+      - FL
+      - OS
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - hr.cand.cand_se_cd
+    EnumHrCandCntctSttsCd:
+      type: string
+      enum:
+      - NONE
+      - DONE
+      - INTV
+      - HOLD
+      - SIGNED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - hr.cand.cntct_stts_cd
+    EnumCstCstAlocAlocTyCd:
+      type: string
+      enum:
+      - PROJECT
+      - IDLE
+      - RND
+      - INDIRECT
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - cst.cst_aloc.aloc_ty_cd
+    EnumCstPrvmnAdjAdjSeCd:
+      type: string
+      enum:
+      - REVENUE
+      - COST
+      - SGA
+      - ETC
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - cst.prvmn_adj.adj_se_cd
+    EnumBillBillBillSttsCd:
+      type: string
+      enum:
+      - PLAN
+      - DRAFT
+      - CONFIRM
+      - CANCEL
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bill.bill.bill_stts_cd
+    EnumBillDunHistDunStgCd:
+      type: string
+      enum:
+      - '1'
+      - '2'
+      - '3'
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bill.dun_hist.dun_stg_cd
+    EnumBillDunHistSendMthdCd:
+      type: string
+      enum:
+      - EMAIL
+      - SYSTEM
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - bill.dun_hist.send_mthd_cd
+    EnumFinEntryFinSeCd:
+      type: string
+      enum:
+      - SGA
+      - NOI
+      - NOE
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.entry.fin_se_cd
+    EnumFinCorpTaxPayTaxPaySeCd:
+      type: string
+      enum:
+      - FINAL
+      - INTERIM
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.corp_tax_pay.tax_pay_se_cd
+    EnumFinPartStlmStlmSttsCd:
+      type: string
+      enum:
+      - DRAFT
+      - CONFIRM
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.part_stlm.stlm_stts_cd
+    EnumFinPartStlmHistStlmPrcsCd:
+      type: string
+      enum:
+      - CONFIRM
+      - CANCEL
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.part_stlm_hist.stlm_prcs_cd
+    EnumFinPayPaySttsCd:
+      type: string
+      enum:
+      - PLAN
+      - PAID
+      - UNPAID
+      - CANCEL
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.pay.pay_stts_cd
+    EnumFinEtcInflwInflwSeCd:
+      type: string
+      enum:
+      - MISC
+      - LOAN
+      - ETC
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.etc_inflw.inflw_se_cd
+    EnumFinMthPlPlSrcCd:
+      type: string
+      enum:
+      - CLOSE
+      - IMPORT
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.mth_pl.pl_src_cd
+    EnumFinMthClsClsSttsCd:
+      type: string
+      enum:
+      - OPEN
+      - CLOSED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.mth_cls.cls_stts_cd
+    EnumFinMthClsHistClsPrcsCd:
+      type: string
+      enum:
+      - CLOSE
+      - REOPEN
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.mth_cls_hist.cls_prcs_cd
+    EnumFinMthClsChkChkRsltCd:
+      type: string
+      enum:
+      - OK
+      - WARN
+      - FAIL
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - fin.mth_cls_chk.chk_rslt_cd
+    EnumAiRcmdRsltRcmdDcsnCd:
+      type: string
+      enum:
+      - NONE
+      - ADOPT
+      - REJECT
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - ai.rcmd_rslt.rcmd_dcsn_cd
+    EnumAiWghtPrpslPrpslSttsCd:
+      type: string
+      enum:
+      - PENDING
+      - APPROVED
+      - REJECTED
+      description: 원본 Field Contract 허용값. 물리 재고 enum은 업무 HTTP 기능 승인이 아니다.
+      x-data-fields:
+      - ai.wght_prpsl.prpsl_stts_cd
+    MenuNode:
+      type: object
+      required:
+      - menuId
+      - name
+      - screenId
+      - icon
+      - mobile
+      - children
+      properties:
+        menuId:
+          type: integer
+          format: int64
+        name:
+          type: string
+          maxLength: 50
+        screenId:
+          type: string
+          maxLength: 10
+          nullable: true
+        icon:
+          type: string
+          maxLength: 30
+          nullable: true
+        mobile:
+          type: boolean
+        children:
+          type: array
+          items:
+            $ref: '#/components/schemas/MenuNode'
+    YearMonth:
+      type: string
+      pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+      description: YYYY-MM; 누락·역전·최대 범위 정책 OQ-003
+    MonthClose:
+      type: object
+      required:
+      - month
+      - status
+      properties:
+        month:
+          type: string
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+        status:
+          type: string
+          enum:
+          - OPEN
+          - CLOSED
+    PageSize:
+      type: integer
+      enum:
+      - 20
+      - 50
+      - 100
+      description: REQ-056 일반 목록 크기. 현재 두 collection 적용 여부 OQ-002
+    Meta:
+      type: object
+      required:
+      - requestId
+      properties:
+        requestId:
+          type: string
+    Health:
+      type: object
+      required:
+      - status
+      properties:
+        status:
+          type: string
+          enum:
+          - UP
+  headers:
+    RequestId:
+      description: 모든 응답 문의 추적 번호. 형식·생성 규칙 미지정; REQ-054
+      required: true
+      schema:
+        type: string
+  responses:
+    Error400:
+      description: 입력 오류; field 포함
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            allOf:
+            - $ref: '#/components/schemas/ApiError'
+            - type: object
+              required:
+              - field
+              properties:
+                field:
+                  type: string
+    Error404:
+      description: 대상 없음; 발생 조건은 자원별 승인 필요
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Error500:
+      description: 서버 오류; requestId 문의 번호
+      headers:
+        X-Request-Id:
+          $ref: '#/components/headers/RequestId'
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+  parameters:
+    Page:
+      name: page
+      in: query
+      description: REQ-055 일반 목록의 쪽 번호. 메뉴/월배열 적용·시작 번호·기본값·필수는 OQ-004. 생략 가능으로 승인한
+        것이 아니다.
+      schema:
+        type: integer
+      x-contract-status: clarification_required
+    Size:
+      name: size
+      in: query
+      description: 목록 건수20/50/100. 현재 두 조회의 적용 여부·기본값·필수는 OQ-004.50을 기본값으로 지정하지 않는다.
+      schema:
+        $ref: '#/components/schemas/PageSize'
+      x-contract-status: clarification_required
+    Sort:
+      name: sort
+      in: query
+      description: BASIC-90 최종 구현 인계의 공통 응답·입력·원본 모델 계약을 따른다.
+      schema:
+        type: string
+      x-contract-status: clarification_required
+    FromMonth:
+      name: from
+      in: query
+      description: 시작 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며
+        선택입력 정책 승인이 아니다.
+      schema:
+        $ref: '#/components/schemas/YearMonth'
+      x-required-decision: clarification_required
+    ToMonth:
+      name: to
+      in: query
+      description: 종료 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며
+        선택입력 정책 승인이 아니다.
+      schema:
+        $ref: '#/components/schemas/YearMonth'
+      x-required-decision: clarification_required
+    From:
+      name: from
+      in: query
+      required: true
+      description: 조회 시작 연월. from<=to. 누락/형식/역전은400. 임의 상한 없음.
+      schema:
+        type: string
+        pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+    To:
+      name: to
+      in: query
+      required: true
+      description: 조회 종료 연월. from<=to. 누락/형식/역전은400. 임의 상한 없음.
+      schema:
+        type: string
+        pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+x-security-policy: 'REQ-002: 현재 인증 판정 없음. security=[]·securitySchemes={}는 현재 계약이며
+  향후 보안 정책 영구 없음 선언 아님. secured operation이 없으므로 x-roles를 발명하지 않는다.'
+x-mutation-scope: 변이·파일 업로드/다운로드 API는 요구되지 않았다. V1/V2는 HTTP operation 아님. x-side-effects·x-state-transitions의
+  변이 의무를 만족시키려 새 endpoint를 만들지 않는다.
+x-shared-contract-reference:
+  technology_stack:
+    frontend:
+    - React 18
+    - TypeScript
+    - Vite 5
+    - React Router
+    - Zustand
+    - lucide-react
+    - CSS Modules
+    backend:
+    - Java 17
+    - Spring Boot 3.3.x
+    - Spring MVC
+    - Spring Data JPA
+    - Flyway
+    - Maven
+    database: PostgreSQL 16
+    infrastructure: Docker Compose
+  version_bom:
+    spring_boot: 3.3.x
+    node: 20.x
+    vite: 5.x
+    react: 18.x
+    postgres: 16.x
+  required_outputs:
+    backend_dir: backend
+    frontend_dir: frontend
+    compose_file: infra/docker-compose.yml
+    health_endpoint: /api/health
+  execution_persistence_ssot: ../plan.md
+  handoff_status: clarification_required
+x-uncovered-requirements:
+- canonical_id: REQ-001
+  status: out-of-scope
+  evidence: 업무 화면의 자리만 제공 — 이번 범위의 업무 화면은 앱 틀과 자리 표시만 구현하고 실제 업무 기능은 만들지 않는다.
+- canonical_id: REQ-002
+  status: non-functional
+  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증
+    없이 실행한다.'
+- canonical_id: REQ-003
+  status: non-functional
+  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로
+    구성한다.'
+- canonical_id: REQ-004
+  status: data-constraint
+  evidence: 외부 스키마 원본 사용 — 코드생성 시 https://github.com/MinHeeJ/cost_calculation의 example/si_cost_schema_pg16_std.sql을
+    읽어 DB 마이그레이션 원본으로 복사한다.
+- canonical_id: REQ-005
+  status: non-functional
+  evidence: 'CSS 변수 전용 토큰 — 상위 계약·후속 구현 책임: 색·간격·글자 크기는 CSS 변수로만 정의하고 사용한다.'
+- canonical_id: REQ-006
+  status: non-functional
+  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF,
+    primary-bg #EFF6FF, text #111827, text-sub #4B5563, text-disabled #9CA3AF, border
+    #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg #F3F4F6을
+    사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내
+    #0369A1/#F0F9FF, 잠김 #4B5563/#F3F4F6이다.'
+- canonical_id: REQ-007
+  status: non-functional
+  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지
+    않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
+- canonical_id: REQ-008
+  status: non-functional
+  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600,
+    body 14/20/400, table 13/20/400(제목 행 600), label 13/18/500, caption 12/16/400이며
+    12px 미만을 금지한다.'
+- canonical_id: REQ-009
+  status: non-functional
+  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와
+    카드·창 8px이다. 그림자는 펼침 목록 0 2px 4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만
+    쓰고 카드·표는 1px 테두리이다.'
+- canonical_id: REQ-010
+  status: non-functional
+  evidence: '단일 아이콘 공급자 — 상위 계약·후속 구현 책임: 아이콘은 lucide-react만 사용한다.'
+- canonical_id: REQ-011
+  status: screen-only
+  evidence: '원 단위 금액 표시 — 프론트 소유: 1320000 -> 1,320,000. 0 -> 0. 단위 테스트로 확인한다.'
+- canonical_id: REQ-012
+  status: screen-only
+  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01).
+    0 -> 0. null -> –.'
+- canonical_id: REQ-013
+  status: screen-only
+  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003
+    확인 필요.'
+- canonical_id: REQ-014
+  status: screen-only
+  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재
+    정책은 OQ-003 확인 필요.'
+- canonical_id: REQ-015
+  status: screen-only
+  evidence: '숫자·표 정렬 — 프론트 소유: 숫자 셀은 우측·tabular-nums이고 날짜 셀은 가운데 정렬이다.'
+- canonical_id: REQ-016
+  status: screen-only
+  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은
+    쉼표 형식이다.'
+- canonical_id: REQ-017
+  status: screen-only
+  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로
+    승인하지 않는다. 거부 표시 방식은 OQ-004.'
+- canonical_id: REQ-018
+  status: screen-only
+  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자
+    유지.'
+- canonical_id: REQ-019
+  status: screen-only
+  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의
+    구체적 업무 기준은 이후 문서 소유.'
+- canonical_id: REQ-020
+  status: screen-only
+  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는
+    이번 범위에 추가하지 않는다.'
+- canonical_id: REQ-021
+  status: data-constraint
+  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를
+    새로 만들지 않는다.
+- canonical_id: REQ-023
+  status: screen-only
+  evidence: '미저장 표시 — 프론트 소유: 미저장 입력 있음 -> 탭명 앞 ●. 미저장 입력 없음 -> ●가 없다.'
+- canonical_id: REQ-024
+  status: screen-only
+  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을
+    허용한다.'
+- canonical_id: REQ-025
+  status: screen-only
+  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장
+    경고가 발생하지 않는다. 브라우저 기본 문구 제약을 따른다.'
+- canonical_id: REQ-026
+  status: screen-only
+  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로
+    추가 실행이 발생하지 않는다.'
+- canonical_id: REQ-027
+  status: screen-only
+  evidence: '주 버튼 위치 — 프론트 소유: 같은 영역에 주 버튼이 둘 이상 없고 주 버튼은 오른쪽에 보인다.'
+- canonical_id: REQ-028
+  status: screen-only
+  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근
+    화면·목록 건수도 지정 값 복원.'
+- canonical_id: REQ-029
+  status: screen-only
+  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px ->
+    숨김 메뉴(FR-002 AC-03).'
+- canonical_id: REQ-030
+  status: screen-only
+  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은
+    화면은 모바일 여부만으로 제외되지 않는다.'
+- canonical_id: REQ-031
+  status: screen-only
+  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 ->
+    /UI-16.'
+- canonical_id: REQ-032
+  status: screen-only
+  evidence: '휴대폰 터치 규격 — 프론트 소유: 375px에서 입력·버튼 높이 44px 및 본문 16px을 확인한다.'
+- canonical_id: REQ-033
+  status: screen-only
+  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px ->
+    탭줄 표시.'
+- canonical_id: REQ-034
+  status: non-functional
+  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId:
+    null, name: "기본 사용자", roleIds: [1] }을 반환한다.'
+- canonical_id: REQ-035
+  status: data-constraint
+  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며
+    지금은 NULL이다.
+- canonical_id: REQ-036
+  status: screen-only
+  evidence: 'NULL 처리자 표시 — 프론트 소유: 처리자 NULL -> 기본 사용자 표시. NULL을 빈 사용자명으로 표시하지 않는다.'
+- canonical_id: REQ-037
+  status: non-functional
+  evidence: '권한 키와 항상 허용 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 권한 키는 {화면ID}.{기능}이고 기능은 read·create·update·delete·upload·download·confirm이며
+    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와
+    <Can perm>은 지금 항상 true이다.'
+- canonical_id: REQ-038
+  status: non-functional
+  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는
+    권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
+- canonical_id: REQ-040
+  status: non-functional
+  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를
+    둘 수 있으며 대상은 급여·단가·개인 원가·지급 계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
+- canonical_id: REQ-041
+  status: non-functional
+  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router,
+    Zustand, lucide-react와 CSS Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
+- canonical_id: REQ-042
+  status: non-functional
+  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring
+    MVC 동기 블로킹, Spring Data JPA, Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의
+    충돌은 OQ-001로 미해결이다.'
+- canonical_id: REQ-043
+  status: non-functional
+  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api
+    프록시)·backend·db의 3개 서비스 각각에 healthcheck를 둔다.'
+- canonical_id: REQ-044
+  status: data-constraint
+  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며
+    이름은 비인용 소문자이다.
+- canonical_id: REQ-045
+  status: data-constraint
+  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7)
+    YYYY-MM, use_yn Y 또는 N을 유지한다.
+- canonical_id: REQ-046
+  status: data-constraint
+  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB
+    기본값, updated_at은 앱 갱신이며 created_by·updated_by는 BIGINT로 현재 NULL이다.
+- canonical_id: REQ-047
+  status: data-constraint
+  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로
+    실행할 것을 요구한다. 엔티티는 해당 테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
+- canonical_id: REQ-048
+  status: data-constraint
+  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본
+    스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA ... CASCADE 줄만 제거한다.
+- canonical_id: REQ-049
+  status: data-constraint
+  evidence: V2 마감 시드 — V2__seed_month_close.sql로 fin.mth_cls 초기 데이터를 넣는다.
+- canonical_id: REQ-050
+  status: data-constraint
+  evidence: 마이그레이션 불변성 — 이후 문서는 테이블을 새로 만들지 않고 변경 시 V3부터 추가하며 V1·V2는 수정하지 않는다.
+- canonical_id: REQ-051
+  status: data-constraint
+  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성
+    범위를 혼동하지 않는다.
+- canonical_id: REQ-052
+  status: data-constraint
+  evidence: 기간 유형의 로컬 등록 — period_type은 DB가 아닌 src/screens/registry.ts에 둔다.
+- canonical_id: REQ-053
+  status: screen-only
+  evidence: '화면 경로와 기본 진입 — 프론트 소유: /UI-03 새로고침 -> 같은 화면(FR-001 AC-01). / 진입 -> /UI-16.'
+- canonical_id: REQ-056
+  status: non-functional
+  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를
+    받고 { items, total, page, size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의
+    적용 차이는 OQ-002 확인 필요이다.'
+- canonical_id: REQ-058
+  status: screen-only
+  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도
+    가능하며 입력 유지. requestId를 못 받은 경우 문구는 OQ-006.'
+- canonical_id: REQ-059
+  status: data-constraint
+  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의
+    mbl_expsr_yn은 N이다.
+- canonical_id: REQ-060
+  status: data-constraint
+  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00),
+    2026-10 OPEN이다.
+- canonical_id: REQ-061
+  status: data-constraint
+  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14,
+    YEAR_CUM은 UI-07·08·09·18, 나머지는 NONE이다.
+- canonical_id: REQ-062
+  status: screen-only
+  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자
+    메뉴 -> 목록 기본 건수 설정.'
+- canonical_id: REQ-063
+  status: screen-only
+  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과
+    함께 확인한다.'
+- canonical_id: REQ-064
+  status: screen-only
+  evidence: '즐겨찾기 순서 변경 — 프론트 소유: 즐겨찾기 행을 다른 위치로 끌기 -> 목록 순서 변경. 새로고침 -> 변경 순서 유지.'
+- canonical_id: REQ-065
+  status: screen-only
+  evidence: '최근 본 화면 — 프론트 소유: 서로 다른 6개 화면 방문 -> 최근 본 목록 최대 5개. 재방문 중복 처리 세부 규칙은 OQ-004.'
+- canonical_id: REQ-066
+  status: screen-only
+  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침
+    없음.'
+- canonical_id: REQ-067
+  status: screen-only
+  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘
+    복원.'
+- canonical_id: REQ-068
+  status: screen-only
+  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복
+    생성 없음.'
+- canonical_id: REQ-069
+  status: screen-only
+  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소
+    -> 기존 탭 집합 유지. LRU 후보·승인 순서는 OQ-004.'
+- canonical_id: REQ-070
+  status: screen-only
+  evidence: '화면 제목줄 — 프론트 소유: 화면 이동 -> 현재 묶음·화면명·화면 ID를 제목줄에서 확인한다.'
+- canonical_id: REQ-071
+  status: screen-only
+  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적.
+    최초 진입 -> Asia/Seoul 오늘 연월. 새로고침 보존 범위는 OQ-004.'
+- canonical_id: REQ-072
+  status: screen-only
+  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 ->
+    작업중 배지(FR-001 AC-03). 전월 조정 업무는 새로 구현하지 않는다.'
+- canonical_id: REQ-073
+  status: screen-only
+  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를
+    만들지 않는다.'
+- canonical_id: REQ-077
+  status: screen-only
+  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙
+    우선.'
+- canonical_id: REQ-078
+  status: screen-only
+  evidence: '입력 부품과 폼 배치 — 프론트 소유: 1280px -> 제목 120px·2열. 375px -> 제목 위·1열.'
+- canonical_id: REQ-079
+  status: screen-only
+  evidence: '공통 표 — 프론트 소유: 표 내부 세로 구분선 없음. 스크롤 중 제목 행 고정·total 표시.'
+- canonical_id: REQ-080
+  status: screen-only
+  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는
+    상태에 맞게 흐리다.'
+- canonical_id: REQ-081
+  status: screen-only
+  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터
+    필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
+- canonical_id: REQ-082
+  status: screen-only
+  evidence: '탭·배지 부품 — 프론트 소유: 밑줄 탭 구성 최대 5개와 지정 상태 팔레트·구분형 테두리를 확인한다.'
+- canonical_id: REQ-083
+  status: screen-only
+  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의
+    크기 적용은 OQ-004.'
+- canonical_id: REQ-084
+  status: screen-only
+  evidence: '토스트·잠금 띠 — 프론트 소유: 일반 토스트 -> 3초 후 사라짐. 오류 -> 토스트 대신 빨간 띠. 잠금 띠 -> 회색.'
+- canonical_id: REQ-085
+  status: screen-only
+  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속
+    문서 확인.'
+- canonical_id: REQ-086
+  status: non-functional
+  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드
+    화면 문서에서 처음 사용한다.'
+- canonical_id: REQ-087
+  status: out-of-scope
+  evidence: 별도 견본 화면 제외 — 공통 부품만을 위한 별도 견본 화면은 만들지 않는다.
+- canonical_id: REQ-088
+  status: non-functional
+  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend
+    Java 17 + Spring Boot, Database PostgreSQL, Infrastructure Docker Compose를 고정한다.'
+- canonical_id: REQ-089
+  status: non-functional
+  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와
+    파생 projection이고 독립 SSOT가 아니다. 이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
+- canonical_id: REQ-090
+  status: non-functional
+  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x,
+    react 18.x, postgres 16.x를 유지한다.'
+- canonical_id: REQ-091
+  status: non-functional
+  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend,
+    compose_file=infra/docker-compose.yml, health_endpoint=/api/health를 유지한다.'
+- canonical_id: REQ-092
+  status: screen-only
+  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용
+    규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을 자동 승인하지 않는다.'
+- canonical_id: REQ-093
+  status: non-functional
+  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를
+    쓰고 후속 plan.md·tasks.md·ui-design.md는 원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
+- canonical_id: REQ-094
+  status: non-functional
+  evidence: '신규 구현의 backend 필수 — 상위 계약·후속 구현 책임: backend/ 변경이 없는 신규생성 구현은 불완전하다.'
+- canonical_id: REQ-095
+  status: screen-only
+  evidence: 'Frontend 레퍼런스 반영 — 프론트 소유: 후속 구현 화면을 승인된 레퍼런스 적용 규칙과 대조한다.'
+- canonical_id: REQ-096
+  status: non-functional
+  evidence: 'DB 기준 필수 — 상위 계약·후속 구현 책임: 신규생성 구현에는 DB 스키마 또는 migration 기준이 있어야 한다.'
+- canonical_id: REQ-097
+  status: data-constraint
+  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께
+    확인한다.
+- canonical_id: REQ-098
+  status: non-functional
+  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를
+    두고 node_modules, .git, dist, build, .next, coverage를 제외한다.'
+- canonical_id: REQ-099
+  status: screen-only
+  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가
+    가능. 초과 시 안내 문구는 OQ-004.'
+- canonical_id: REQ-100
+  status: screen-only
+  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의
+    열린 탭 재선택도 상태를 초기화하지 않는다.'
+- canonical_id: REQ-101
+  status: screen-only
+  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지
+    않는다. LRU의 후보 결정 세부는 OQ-004.'
+- canonical_id: REQ-102
+  status: screen-only
+  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로
+    돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
+x-requirement-accounting:
+- canonical_id: REQ-001
+  status: out-of-scope
+  evidence: 업무 화면의 자리만 제공 — 이번 범위의 업무 화면은 앱 틀과 자리 표시만 구현하고 실제 업무 기능은 만들지 않는다.
+- canonical_id: REQ-002
+  status: non-functional
+  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증
+    없이 실행한다.'
+- canonical_id: REQ-003
+  status: non-functional
+  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로
+    구성한다.'
+- canonical_id: REQ-004
+  status: data-constraint
+  evidence: 외부 스키마 원본 사용 — 코드생성 시 https://github.com/MinHeeJ/cost_calculation의 example/si_cost_schema_pg16_std.sql을
+    읽어 DB 마이그레이션 원본으로 복사한다.
+- canonical_id: REQ-005
+  status: non-functional
+  evidence: 'CSS 변수 전용 토큰 — 상위 계약·후속 구현 책임: 색·간격·글자 크기는 CSS 변수로만 정의하고 사용한다.'
+- canonical_id: REQ-006
+  status: non-functional
+  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF,
+    primary-bg #EFF6FF, text #111827, text-sub #4B5563, text-disabled #9CA3AF, border
+    #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg #F3F4F6을
+    사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내
+    #0369A1/#F0F9FF, 잠김 #4B5563/#F3F4F6이다.'
+- canonical_id: REQ-007
+  status: non-functional
+  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지
+    않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
+- canonical_id: REQ-008
+  status: non-functional
+  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600,
+    body 14/20/400, table 13/20/400(제목 행 600), label 13/18/500, caption 12/16/400이며
+    12px 미만을 금지한다.'
+- canonical_id: REQ-009
+  status: non-functional
+  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와
+    카드·창 8px이다. 그림자는 펼침 목록 0 2px 4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만
+    쓰고 카드·표는 1px 테두리이다.'
+- canonical_id: REQ-010
+  status: non-functional
+  evidence: '단일 아이콘 공급자 — 상위 계약·후속 구현 책임: 아이콘은 lucide-react만 사용한다.'
+- canonical_id: REQ-011
+  status: screen-only
+  evidence: '원 단위 금액 표시 — 프론트 소유: 1320000 -> 1,320,000. 0 -> 0. 단위 테스트로 확인한다.'
+- canonical_id: REQ-012
+  status: screen-only
+  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01).
+    0 -> 0. null -> –.'
+- canonical_id: REQ-013
+  status: screen-only
+  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003
+    확인 필요.'
+- canonical_id: REQ-014
+  status: screen-only
+  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재
+    정책은 OQ-003 확인 필요.'
+- canonical_id: REQ-015
+  status: screen-only
+  evidence: '숫자·표 정렬 — 프론트 소유: 숫자 셀은 우측·tabular-nums이고 날짜 셀은 가운데 정렬이다.'
+- canonical_id: REQ-016
+  status: screen-only
+  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은
+    쉼표 형식이다.'
+- canonical_id: REQ-017
+  status: screen-only
+  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로
+    승인하지 않는다. 거부 표시 방식은 OQ-004.'
+- canonical_id: REQ-018
+  status: screen-only
+  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자
+    유지.'
+- canonical_id: REQ-019
+  status: screen-only
+  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의
+    구체적 업무 기준은 이후 문서 소유.'
+- canonical_id: REQ-020
+  status: screen-only
+  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는
+    이번 범위에 추가하지 않는다.'
+- canonical_id: REQ-021
+  status: data-constraint
+  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를
+    새로 만들지 않는다.
+- canonical_id: REQ-022
+  status: covered
+  evidence: getMonthClose
+- canonical_id: REQ-023
+  status: screen-only
+  evidence: '미저장 표시 — 프론트 소유: 미저장 입력 있음 -> 탭명 앞 ●. 미저장 입력 없음 -> ●가 없다.'
+- canonical_id: REQ-024
+  status: screen-only
+  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을
+    허용한다.'
+- canonical_id: REQ-025
+  status: screen-only
+  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장
+    경고가 발생하지 않는다. 브라우저 기본 문구 제약을 따른다.'
+- canonical_id: REQ-026
+  status: screen-only
+  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로
+    추가 실행이 발생하지 않는다.'
+- canonical_id: REQ-027
+  status: screen-only
+  evidence: '주 버튼 위치 — 프론트 소유: 같은 영역에 주 버튼이 둘 이상 없고 주 버튼은 오른쪽에 보인다.'
+- canonical_id: REQ-028
+  status: screen-only
+  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근
+    화면·목록 건수도 지정 값 복원.'
+- canonical_id: REQ-029
+  status: screen-only
+  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px ->
+    숨김 메뉴(FR-002 AC-03).'
+- canonical_id: REQ-030
+  status: screen-only
+  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은
+    화면은 모바일 여부만으로 제외되지 않는다.'
+- canonical_id: REQ-031
+  status: screen-only
+  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 ->
+    /UI-16.'
+- canonical_id: REQ-032
+  status: screen-only
+  evidence: '휴대폰 터치 규격 — 프론트 소유: 375px에서 입력·버튼 높이 44px 및 본문 16px을 확인한다.'
+- canonical_id: REQ-033
+  status: screen-only
+  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px ->
+    탭줄 표시.'
+- canonical_id: REQ-034
+  status: non-functional
+  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId:
+    null, name: "기본 사용자", roleIds: [1] }을 반환한다.'
+- canonical_id: REQ-035
+  status: data-constraint
+  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며
+    지금은 NULL이다.
+- canonical_id: REQ-036
+  status: screen-only
+  evidence: 'NULL 처리자 표시 — 프론트 소유: 처리자 NULL -> 기본 사용자 표시. NULL을 빈 사용자명으로 표시하지 않는다.'
+- canonical_id: REQ-037
+  status: non-functional
+  evidence: '권한 키와 항상 허용 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 권한 키는 {화면ID}.{기능}이고 기능은 read·create·update·delete·upload·download·confirm이며
+    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와
+    <Can perm>은 지금 항상 true이다.'
+- canonical_id: REQ-038
+  status: non-functional
+  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는
+    권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
+- canonical_id: REQ-039
+  status: covered
+  evidence: getMenus
+- canonical_id: REQ-040
+  status: non-functional
+  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를
+    둘 수 있으며 대상은 급여·단가·개인 원가·지급 계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
+- canonical_id: REQ-041
+  status: non-functional
+  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router,
+    Zustand, lucide-react와 CSS Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
+- canonical_id: REQ-042
+  status: non-functional
+  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring
+    MVC 동기 블로킹, Spring Data JPA, Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의
+    충돌은 OQ-001로 미해결이다.'
+- canonical_id: REQ-043
+  status: non-functional
+  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api
+    프록시)·backend·db의 3개 서비스 각각에 healthcheck를 둔다.'
+- canonical_id: REQ-044
+  status: data-constraint
+  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며
+    이름은 비인용 소문자이다.
+- canonical_id: REQ-045
+  status: data-constraint
+  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7)
+    YYYY-MM, use_yn Y 또는 N을 유지한다.
+- canonical_id: REQ-046
+  status: data-constraint
+  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB
+    기본값, updated_at은 앱 갱신이며 created_by·updated_by는 BIGINT로 현재 NULL이다.
+- canonical_id: REQ-047
+  status: data-constraint
+  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로
+    실행할 것을 요구한다. 엔티티는 해당 테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
+- canonical_id: REQ-048
+  status: data-constraint
+  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본
+    스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA ... CASCADE 줄만 제거한다.
+- canonical_id: REQ-049
+  status: data-constraint
+  evidence: V2 마감 시드 — V2__seed_month_close.sql로 fin.mth_cls 초기 데이터를 넣는다.
+- canonical_id: REQ-050
+  status: data-constraint
+  evidence: 마이그레이션 불변성 — 이후 문서는 테이블을 새로 만들지 않고 변경 시 V3부터 추가하며 V1·V2는 수정하지 않는다.
+- canonical_id: REQ-051
+  status: data-constraint
+  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성
+    범위를 혼동하지 않는다.
+- canonical_id: REQ-052
+  status: data-constraint
+  evidence: 기간 유형의 로컬 등록 — period_type은 DB가 아닌 src/screens/registry.ts에 둔다.
+- canonical_id: REQ-053
+  status: screen-only
+  evidence: '화면 경로와 기본 진입 — 프론트 소유: /UI-03 새로고침 -> 같은 화면(FR-001 AC-01). / 진입 -> /UI-16.'
+- canonical_id: REQ-054
+  status: covered
+  evidence: getMenus, getMonthClose, getHealth
+- canonical_id: REQ-055
+  status: covered
+  evidence: getMenus, getMonthClose
+- canonical_id: REQ-056
+  status: non-functional
+  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를
+    받고 { items, total, page, size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의
+    적용 차이는 OQ-002 확인 필요이다.'
+- canonical_id: REQ-057
+  status: covered
+  evidence: getMenus, getMonthClose
+- canonical_id: REQ-058
+  status: screen-only
+  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도
+    가능하며 입력 유지. requestId를 못 받은 경우 문구는 OQ-006.'
+- canonical_id: REQ-059
+  status: data-constraint
+  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의
+    mbl_expsr_yn은 N이다.
+- canonical_id: REQ-060
+  status: data-constraint
+  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00),
+    2026-10 OPEN이다.
+- canonical_id: REQ-061
+  status: data-constraint
+  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14,
+    YEAR_CUM은 UI-07·08·09·18, 나머지는 NONE이다.
+- canonical_id: REQ-062
+  status: screen-only
+  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자
+    메뉴 -> 목록 기본 건수 설정.'
+- canonical_id: REQ-063
+  status: screen-only
+  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과
+    함께 확인한다.'
+- canonical_id: REQ-064
+  status: screen-only
+  evidence: '즐겨찾기 순서 변경 — 프론트 소유: 즐겨찾기 행을 다른 위치로 끌기 -> 목록 순서 변경. 새로고침 -> 변경 순서 유지.'
+- canonical_id: REQ-065
+  status: screen-only
+  evidence: '최근 본 화면 — 프론트 소유: 서로 다른 6개 화면 방문 -> 최근 본 목록 최대 5개. 재방문 중복 처리 세부 규칙은 OQ-004.'
+- canonical_id: REQ-066
+  status: screen-only
+  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침
+    없음.'
+- canonical_id: REQ-067
+  status: screen-only
+  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘
+    복원.'
+- canonical_id: REQ-068
+  status: screen-only
+  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복
+    생성 없음.'
+- canonical_id: REQ-069
+  status: screen-only
+  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소
+    -> 기존 탭 집합 유지. LRU 후보·승인 순서는 OQ-004.'
+- canonical_id: REQ-070
+  status: screen-only
+  evidence: '화면 제목줄 — 프론트 소유: 화면 이동 -> 현재 묶음·화면명·화면 ID를 제목줄에서 확인한다.'
+- canonical_id: REQ-071
+  status: screen-only
+  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적.
+    최초 진입 -> Asia/Seoul 오늘 연월. 새로고침 보존 범위는 OQ-004.'
+- canonical_id: REQ-072
+  status: screen-only
+  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 ->
+    작업중 배지(FR-001 AC-03). 전월 조정 업무는 새로 구현하지 않는다.'
+- canonical_id: REQ-073
+  status: screen-only
+  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를
+    만들지 않는다.'
+- canonical_id: REQ-074
+  status: covered
+  evidence: getMenus
+- canonical_id: REQ-075
+  status: covered
+  evidence: getMonthClose
+- canonical_id: REQ-076
+  status: covered
+  evidence: getHealth
+- canonical_id: REQ-077
+  status: screen-only
+  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙
+    우선.'
+- canonical_id: REQ-078
+  status: screen-only
+  evidence: '입력 부품과 폼 배치 — 프론트 소유: 1280px -> 제목 120px·2열. 375px -> 제목 위·1열.'
+- canonical_id: REQ-079
+  status: screen-only
+  evidence: '공통 표 — 프론트 소유: 표 내부 세로 구분선 없음. 스크롤 중 제목 행 고정·total 표시.'
+- canonical_id: REQ-080
+  status: screen-only
+  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는
+    상태에 맞게 흐리다.'
+- canonical_id: REQ-081
+  status: screen-only
+  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터
+    필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
+- canonical_id: REQ-082
+  status: screen-only
+  evidence: '탭·배지 부품 — 프론트 소유: 밑줄 탭 구성 최대 5개와 지정 상태 팔레트·구분형 테두리를 확인한다.'
+- canonical_id: REQ-083
+  status: screen-only
+  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의
+    크기 적용은 OQ-004.'
+- canonical_id: REQ-084
+  status: screen-only
+  evidence: '토스트·잠금 띠 — 프론트 소유: 일반 토스트 -> 3초 후 사라짐. 오류 -> 토스트 대신 빨간 띠. 잠금 띠 -> 회색.'
+- canonical_id: REQ-085
+  status: screen-only
+  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속
+    문서 확인.'
+- canonical_id: REQ-086
+  status: non-functional
+  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드
+    화면 문서에서 처음 사용한다.'
+- canonical_id: REQ-087
+  status: out-of-scope
+  evidence: 별도 견본 화면 제외 — 공통 부품만을 위한 별도 견본 화면은 만들지 않는다.
+- canonical_id: REQ-088
+  status: non-functional
+  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend
+    Java 17 + Spring Boot, Database PostgreSQL, Infrastructure Docker Compose를 고정한다.'
+- canonical_id: REQ-089
+  status: non-functional
+  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와
+    파생 projection이고 독립 SSOT가 아니다. 이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
+- canonical_id: REQ-090
+  status: non-functional
+  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x,
+    react 18.x, postgres 16.x를 유지한다.'
+- canonical_id: REQ-091
+  status: non-functional
+  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend,
+    compose_file=infra/docker-compose.yml, health_endpoint=/api/health를 유지한다.'
+- canonical_id: REQ-092
+  status: screen-only
+  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용
+    규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을 자동 승인하지 않는다.'
+- canonical_id: REQ-093
+  status: non-functional
+  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를
+    쓰고 후속 plan.md·tasks.md·ui-design.md는 원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
+- canonical_id: REQ-094
+  status: non-functional
+  evidence: '신규 구현의 backend 필수 — 상위 계약·후속 구현 책임: backend/ 변경이 없는 신규생성 구현은 불완전하다.'
+- canonical_id: REQ-095
+  status: screen-only
+  evidence: 'Frontend 레퍼런스 반영 — 프론트 소유: 후속 구현 화면을 승인된 레퍼런스 적용 규칙과 대조한다.'
+- canonical_id: REQ-096
+  status: non-functional
+  evidence: 'DB 기준 필수 — 상위 계약·후속 구현 책임: 신규생성 구현에는 DB 스키마 또는 migration 기준이 있어야 한다.'
+- canonical_id: REQ-097
+  status: data-constraint
+  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께
+    확인한다.
+- canonical_id: REQ-098
+  status: non-functional
+  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를
+    두고 node_modules, .git, dist, build, .next, coverage를 제외한다.'
+- canonical_id: REQ-099
+  status: screen-only
+  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가
+    가능. 초과 시 안내 문구는 OQ-004.'
+- canonical_id: REQ-100
+  status: screen-only
+  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의
+    열린 탭 재선택도 상태를 초기화하지 않는다.'
+- canonical_id: REQ-101
+  status: screen-only
+  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지
+    않는다. LRU의 후보 결정 세부는 OQ-004.'
+- canonical_id: REQ-102
+  status: screen-only
+  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로
+    돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
+x-source-schema:
+  repo: https://github.com/MinHeeJ/cost_calculation
+  ref: main
+  commit: a7cc80e34d4e7eac0b774915bb30e1f4c7ac1ac9
+  path: example/si_cost_schema_pg16_std.sql
+  sha256: f654190eb098a554f24d79a43aae594f1b2ca2ac7df957c0af62a0c90931a32a
+  download_exact_match: true
