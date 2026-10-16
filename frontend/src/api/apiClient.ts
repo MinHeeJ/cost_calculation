@@ -1,6 +1,7 @@
 /** Public operation registry; feature adapters depend on client.ts, never on this registry. */
 export { request, api, RequestError } from "./client";
 export { getMenus, getMonthClose, getHealth } from "../pages/shared/api";
+export { partnersApi } from "../pages/partners/partnersApi";
 export {
   getCodeGroups,
   createCodeGroup,
@@ -10,6 +11,13 @@ export {
 } from "../pages/codegroups/api";
 export { commonCodeApi, write } from "../pages/commoncode/commonCode";
 export { useCodes, invalidateCodes } from "../pages/commoncode/useCodes";
+export {
+  getPartnerOptions,
+  getPartnerAssignments,
+  getPartnerHistory,
+  disablePartners,
+  enablePartner,
+} from "../pages/partnersops/api";
 
 import { request } from "./client";
 import type { OperatingStandard } from "../pages/commoncode/commonCode";

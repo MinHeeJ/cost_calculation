@@ -1,0 +1,104 @@
+.screen {
+  min-width: 0;
+  color: var(--text);
+}
+.tabs {
+  display: flex;
+  flex-shrink: 0;
+  min-height: 40px;
+  gap: var(--space-8);
+  border-bottom: 1px solid var(--divider);
+  margin-bottom: var(--space-16);
+}
+.tabs button {
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+.tabs button[aria-selected="true"] {
+  color: var(--primary);
+  border-bottom: 2px solid var(--primary);
+  font-weight: 600;
+}
+.pane {
+  min-width: 0;
+  max-height: calc(100dvh - 240px);
+  overflow: auto;
+}
+.tableScroll {
+  min-width: 0;
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--divider);
+  border-radius: var(--radius-card);
+}
+.tableScroll table {
+  width: 100%;
+  border-spacing: 0;
+  font-size: var(--table-size);
+  line-height: var(--table-line);
+}
+.tableScroll th,
+.tableScroll td {
+  height: 40px;
+  padding: var(--space-8) var(--space-12);
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--divider);
+}
+.tableScroll th {
+  background: var(--header-bg);
+  font-weight: 600;
+}
+.tableScroll tbody tr:last-child td {
+  border-bottom: 0;
+}
+.tableScroll tbody tr:hover td {
+  background: var(--header-bg);
+}
+.tableScroll td.number {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.mutations {
+  display: flex;
+  gap: var(--space-8);
+  align-items: center;
+}
+.dialogContent {
+  max-height: min(60dvh, 600px);
+  overflow: auto;
+  line-height: var(--body-line);
+  overflow-wrap: anywhere;
+}
+.dialogContent p + p,
+.dialogContent li + li {
+  margin-top: var(--space-8);
+}
+.notice {
+  margin-top: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  color: var(--success);
+  background: var(--success-bg);
+  border-radius: var(--radius-control);
+}
+.error {
+  margin-top: var(--space-12);
+  padding: var(--space-12) var(--space-16);
+  color: var(--danger);
+  background: var(--danger-bg);
+  border-radius: var(--radius-control);
+  overflow-wrap: anywhere;
+}
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+@media (max-width: 767px) {
+  .mutations {
+    display: none;
+  }
+}

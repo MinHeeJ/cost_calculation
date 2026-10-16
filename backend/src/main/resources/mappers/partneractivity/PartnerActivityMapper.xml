@@ -1,0 +1,154 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.partnersops.PartnerActivityMapper">
+    <resultMap id="partner" type="com.sicost.partnersops.PartnerStatusRow">
+        <id column="ptnr_id" property="id" />
+        <result column="ptnr_no" property="no" />
+        <result column="ptnr_se_cd" property="ptnrSeCd" />
+        <result column="ptnr_nm" property="ptnrNm" />
+        <result column="biz_reg_no" property="bizRegNo" />
+        <result column="use_yn" property="useYn" />
+        <result column="ceo_nm" property="ceoNm" />
+        <result column="indty_cd" property="indtyCd" />
+        <result column="chrg_nm" property="chrgNm" />
+        <result column="chrg_tel_no" property="chrgTelNo" />
+        <result column="kind_name" property="kindName" />
+        <result column="industry_name" property="industryName" />
+        <result column="txinv_email_addr" property="txinvEmailAddr" />
+        <result column="bank_cd" property="bankCd" />
+        <result column="acnt_no" property="acntNo" />
+        <result column="dpstr_nm" property="dpstrNm" />
+        <result column="bank_name" property="bankName" />
+    </resultMap>
+    <resultMap id="option" type="com.sicost.partnersops.PartnerOptionRow">
+        <id column="ptnr_id" property="id" />
+        <result column="ptnr_no" property="no" />
+        <result column="ptnr_nm" property="name" />
+    </resultMap>
+    <resultMap id="assignment" type="com.sicost.partnersops.PartnerAssignmentRow">
+        <result column="prj_nm" property="projectName" />
+        <result column="dev_nm" property="developerName" />
+        <result column="affiliation_name" property="affiliationName" />
+        <result column="job_name" property="jobName" />
+        <result column="asgn_rt" property="assignmentRate" />
+        <result column="end_dt" property="endDate" />
+    </resultMap>
+    <resultMap id="history" type="com.sicost.partnersops.PartnerHistoryRow">
+        <result column="chg_at" property="chgAt" />
+        <result column="data_chg_ty_cd" property="dataChgTyCd" />
+        <result column="clmn_nm" property="clmnNm" />
+        <result column="bfr_val" property="bfrVal" />
+        <result column="aft_val" property="aftVal" />
+        <result column="chg_user_id" property="chgUserId" />
+    </resultMap>
+    <select id="selectPartner" resultMap="partner">
+        SELECT p.ptnr_id,
+            p.ptnr_no,
+            p.ptnr_se_cd,
+            p.ptnr_nm,
+            p.biz_reg_no,
+            p.use_yn,
+            p.ceo_nm,
+            p.indty_cd,
+            p.chrg_nm,
+            p.chrg_tel_no,
+            p.txinv_email_addr,
+            p.bank_cd,
+            p.acnt_no,
+            p.dpstr_nm,
+            k.cd_nm AS kind_name,
+            i.cd_nm AS industry_name,
+            b.cd_nm AS bank_name
+        FROM mst.ptnr p
+        LEFT JOIN cmn.cd_dtl k ON k.cd_grp_id = 'PARTNER_KIND' AND k.dtl_cd = p.ptnr_se_cd
+        LEFT JOIN cmn.cd_dtl i ON i.cd_grp_id = 'INDUSTRY' AND i.dtl_cd = p.indty_cd
+        LEFT JOIN cmn.cd_dtl b ON b.cd_grp_id = 'BANK' AND b.dtl_cd = p.bank_cd
+        WHERE p.ptnr_id = #{id}
+    </select>
+    <select id="selectOptions" resultMap="option">
+        SELECT p.ptnr_id,
+            p.ptnr_no,
+            p.ptnr_nm
+        FROM mst.ptnr p
+        WHERE p.use_yn = 'Y'
+            AND p.ptnr_se_cd IN (#{kind}, 'BOTH')
+        ORDER BY p.ptnr_nm ASC, p.ptnr_id ASC
+    </select>
+    <!-- OR membership on one assignment row implements the union without duplicating asgn_id. -->
+    <select id="selectAssignments" resultMap="assignment">
+        SELECT p.prj_nm,
+            d.dev_nm,
+            CASE WHEN d.vndr_ptnr_id IS NULL THEN '자사' ELSE v.ptnr_nm END AS affiliation_name,
+            COALESCE(j.cd_nm, a.job_cd) AS job_name,
+            a.asgn_rt,
+            a.end_dt
+        FROM asgn.asgn a
+        JOIN prj.prj p ON p.prj_id = a.prj_id
+        JOIN mst.dev d ON d.dev_id = a.dev_id
+        JOIN mst.ptnr t ON t.ptnr_id = #{id}
+        LEFT JOIN mst.ptnr v ON v.ptnr_id = d.vndr_ptnr_id
+        LEFT JOIN cmn.cd_dtl j ON j.cd_grp_id = 'JOB' AND j.dtl_cd = a.job_cd
+        WHERE a.asgn_stts_cd = 'ACTIVE'
+            AND a.bgn_dt &lt;= #{today}
+            AND a.end_dt &gt;= #{today}
+            AND p.prj_stts_cd IN ('PLAN', 'RUN', 'HOLD')
+            AND (
+                (t.ptnr_se_cd IN ('CUST', 'BOTH') AND p.cust_ptnr_id = t.ptnr_id)
+                OR (t.ptnr_se_cd IN ('VEND', 'BOTH') AND d.vndr_ptnr_id = t.ptnr_id)
+            )
+        ORDER BY p.prj_nm ASC, d.dev_nm ASC, a.asgn_id ASC
+    </select>
+    <select id="countOngoingProjects" resultType="int">
+        SELECT COUNT(DISTINCT p.prj_id)
+        FROM prj.prj p
+        JOIN mst.ptnr t ON t.ptnr_id = #{id}
+        WHERE p.prj_stts_cd IN ('PLAN', 'RUN', 'HOLD')
+            AND (
+                (t.ptnr_se_cd IN ('CUST', 'BOTH') AND p.cust_ptnr_id = t.ptnr_id)
+                OR (t.ptnr_se_cd IN ('VEND', 'BOTH') AND EXISTS (
+                    SELECT 1
+                    FROM asgn.asgn a
+                    JOIN mst.dev d ON d.dev_id = a.dev_id
+                    WHERE a.prj_id = p.prj_id
+                        AND d.vndr_ptnr_id = t.ptnr_id
+                        AND a.asgn_stts_cd = 'ACTIVE'
+                        AND a.bgn_dt &lt;= #{today}
+                        AND a.end_dt &gt;= #{today}
+                ))
+            )
+    </select>
+    <select id="countAffiliatedDevelopers" resultType="int">
+        SELECT COUNT(*)
+        FROM mst.dev d
+        WHERE d.vndr_ptnr_id = #{id}
+            AND d.use_yn = 'Y'
+            AND (d.rsgn_dt IS NULL OR d.rsgn_dt &gt; #{today})
+    </select>
+    <select id="selectHistory" resultMap="history">
+        SELECT h.chg_at,
+            h.data_chg_ty_cd,
+            h.clmn_nm,
+            h.bfr_val,
+            h.aft_val,
+            h.chg_user_id
+        FROM sys.data_chg_hist h
+        WHERE h.tbl_nm = 'mst.ptnr'
+            AND h.obj_rec_id = CAST(#{id} AS VARCHAR)
+        ORDER BY h.chg_at DESC, h.data_chg_hist_id DESC
+    </select>
+    <update id="updateUse">
+        UPDATE mst.ptnr
+        SET use_yn = #{useYn},
+            updated_by = #{actor,jdbcType=BIGINT}
+        WHERE ptnr_id = #{id}
+    </update>
+    <insert id="insertHistory">
+        INSERT INTO sys.data_chg_hist (
+            tbl_nm, obj_rec_id, data_chg_ty_cd, clmn_nm, bfr_val, aft_val, chg_user_id
+        )
+        VALUES (
+            'mst.ptnr', CAST(#{id} AS VARCHAR), #{type}, #{column,jdbcType=VARCHAR},
+            #{before,jdbcType=VARCHAR}, #{after,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+</mapper>

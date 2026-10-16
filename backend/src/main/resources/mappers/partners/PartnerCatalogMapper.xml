@@ -1,0 +1,196 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.partners.PartnerCatalogMapper">
+    <resultMap id="detail" type="com.sicost.partners.PartnerCatalogRow">
+        <result column="ptnr_id" property="id" />
+        <result column="ptnr_no" property="no" />
+        <result column="ptnr_se_cd" property="ptnrSeCd" />
+        <result column="ptnr_nm" property="ptnrNm" />
+        <result column="biz_reg_no" property="bizRegNo" />
+        <result column="use_yn" property="useYn" />
+        <result column="ceo_nm" property="ceoNm" />
+        <result column="indty_cd" property="indtyCd" />
+        <result column="chrg_nm" property="chrgNm" />
+        <result column="chrg_tel_no" property="chrgTelNo" />
+        <result column="kind_name" property="kindName" />
+        <result column="industry_name" property="industryName" />
+        <result column="txinv_email_addr" property="txinvEmailAddr" />
+        <result column="bank_cd" property="bankCd" />
+        <result column="acnt_no" property="acntNo" />
+        <result column="dpstr_nm" property="dpstrNm" />
+        <result column="bank_name" property="bankName" />
+    </resultMap>
+    <resultMap id="listItem" type="com.sicost.partners.PartnerListItem">
+        <result column="ptnr_id" property="id" />
+        <result column="ptnr_no" property="no" />
+        <result column="ptnr_se_cd" property="ptnrSeCd" />
+        <result column="ptnr_nm" property="ptnrNm" />
+        <result column="biz_reg_no" property="bizRegNo" />
+        <result column="use_yn" property="useYn" />
+        <result column="ceo_nm" property="ceoNm" />
+        <result column="indty_cd" property="indtyCd" />
+        <result column="chrg_nm" property="chrgNm" />
+        <result column="chrg_tel_no" property="chrgTelNo" />
+        <result column="kind_name" property="kindName" />
+        <result column="industry_name" property="industryName" />
+        <result column="txinv_email_addr" property="txinvEmailAddr" />
+        <result column="payment_account_summary" property="paymentAccountSummary" />
+        <result column="ongoing_project_count" property="ongoingProjectCount" />
+        <result column="assigned_developer_count" property="assignedDeveloperCount" />
+    </resultMap>
+    <sql id="joins">
+        FROM mst.ptnr p
+        LEFT JOIN cmn.cd_dtl k ON k.cd_grp_id = 'PARTNER_KIND' AND k.dtl_cd = p.ptnr_se_cd
+        LEFT JOIN cmn.cd_dtl i ON i.cd_grp_id = 'INDUSTRY' AND i.dtl_cd = p.indty_cd
+        LEFT JOIN cmn.cd_dtl b ON b.cd_grp_id = 'BANK' AND b.dtl_cd = p.bank_cd
+    </sql>
+    <sql id="basic">
+        p.ptnr_id, p.ptnr_no, p.ptnr_se_cd, p.ptnr_nm, p.biz_reg_no, p.use_yn,
+        p.ceo_nm, p.indty_cd, p.chrg_nm, p.chrg_tel_no,
+        k.cd_nm AS kind_name, i.cd_nm AS industry_name
+    </sql>
+    <select id="selectById" resultMap="detail">
+        SELECT <include refid="basic" />,
+            p.txinv_email_addr, p.bank_cd, p.acnt_no, p.dpstr_nm, b.cd_nm AS bank_name
+        <include refid="joins" />
+        WHERE p.ptnr_id = #{id}
+    </select>
+    <sql id="filters">
+        <where>
+            <if test="kind != null">
+                <choose>
+                    <when test="kind == 'BOTH'">p.ptnr_se_cd = 'BOTH'</when>
+                    <otherwise>p.ptnr_se_cd IN (#{kind}, 'BOTH')</otherwise>
+                </choose>
+            </if>
+            <if test="useYn != null">AND p.use_yn = #{useYn}</if>
+            <if test="q != null">
+                AND (p.ptnr_nm ILIKE '%' || #{q} || '%'
+                    OR REPLACE(p.biz_reg_no, '-', '') LIKE '%' || REPLACE(#{q}, '-', '') || '%')
+            </if>
+        </where>
+    </sql>
+    <!-- Customer projects count even without active assignments. Vendor projects require current assignments. -->
+    <sql id="projectScope">
+        SELECT j.prj_id
+        FROM prj.prj j
+        WHERE j.prj_stts_cd IN ('PLAN', 'RUN', 'HOLD')
+            AND (
+                (p.ptnr_se_cd IN ('CUST', 'BOTH') AND j.cust_ptnr_id = p.ptnr_id)
+                OR (p.ptnr_se_cd IN ('VEND', 'BOTH') AND EXISTS (
+                    SELECT 1
+                    FROM asgn.asgn a
+                    JOIN mst.dev d ON d.dev_id = a.dev_id
+                    WHERE a.prj_id = j.prj_id
+                        AND d.vndr_ptnr_id = p.ptnr_id
+                        AND a.asgn_stts_cd = 'ACTIVE'
+                        AND a.bgn_dt &lt;= #{today} AND a.end_dt &gt;= #{today}
+                ))
+            )
+    </sql>
+    <select id="list" resultMap="listItem">
+        SELECT v.*
+        FROM (
+            SELECT <include refid="basic" />,
+                CASE WHEN p.ptnr_se_cd IN ('CUST', 'BOTH') THEN p.txinv_email_addr END AS txinv_email_addr,
+                CASE WHEN p.ptnr_se_cd IN ('VEND', 'BOTH') AND p.acnt_no IS NOT NULL
+                    THEN b.cd_nm || ' …' || RIGHT(p.acnt_no, 4) END AS payment_account_summary,
+                (SELECT COUNT(*) FROM (<include refid="projectScope" />) scope) AS ongoing_project_count,
+                (
+                    SELECT COUNT(DISTINCT a.dev_id)
+                    FROM asgn.asgn a
+                    JOIN prj.prj j ON j.prj_id = a.prj_id
+                    JOIN mst.dev d ON d.dev_id = a.dev_id
+                    WHERE j.prj_stts_cd IN ('PLAN', 'RUN', 'HOLD')
+                        AND a.asgn_stts_cd = 'ACTIVE'
+                        AND a.bgn_dt &lt;= #{today} AND a.end_dt &gt;= #{today}
+                        AND (
+                            (p.ptnr_se_cd IN ('CUST', 'BOTH') AND j.cust_ptnr_id = p.ptnr_id)
+                            OR (p.ptnr_se_cd IN ('VEND', 'BOTH') AND d.vndr_ptnr_id = p.ptnr_id)
+                        )
+                ) AS assigned_developer_count
+            <include refid="joins" />
+            <include refid="filters" />
+        ) v
+        ORDER BY v.${order} ${direction}, v.ptnr_id ASC
+        LIMIT #{limit} OFFSET #{start}
+    </select>
+    <select id="count" resultType="long">
+        SELECT COUNT(*)
+        FROM mst.ptnr p
+        <include refid="filters" />
+    </select>
+    <select id="duplicateName" resultType="string">
+        SELECT ptnr_nm
+        FROM mst.ptnr
+        WHERE biz_reg_no = #{bizRegNo}
+    </select>
+    <select id="codeUse" resultType="string">
+        SELECT use_yn
+        FROM cmn.cd_dtl
+        WHERE cd_grp_id = #{group} AND dtl_cd = #{code}
+    </select>
+    <select id="nextId" resultType="long">
+        SELECT nextval(pg_get_serial_sequence('mst.ptnr', 'ptnr_id'))
+    </select>
+    <insert id="insert">
+        INSERT INTO mst.ptnr (
+            ptnr_id, ptnr_no, ptnr_se_cd, ptnr_nm, biz_reg_no, ceo_nm, indty_cd,
+            chrg_nm, chrg_tel_no, txinv_email_addr, bank_cd, acnt_no, dpstr_nm, use_yn, created_by
+        )
+        VALUES (
+            #{row.id}, #{row.no}, #{row.ptnrSeCd}, #{row.ptnrNm}, #{row.bizRegNo},
+            #{row.ceoNm,jdbcType=VARCHAR}, #{row.indtyCd,jdbcType=VARCHAR},
+            #{row.chrgNm,jdbcType=VARCHAR}, #{row.chrgTelNo,jdbcType=VARCHAR},
+            #{row.txinvEmailAddr,jdbcType=VARCHAR}, #{row.bankCd,jdbcType=VARCHAR},
+            #{row.acntNo,jdbcType=VARCHAR}, #{row.dpstrNm,jdbcType=VARCHAR}, 'Y', #{actor,jdbcType=BIGINT}
+        )
+        ON CONFLICT ON CONSTRAINT uk_ptnr_biz_reg_no DO NOTHING
+    </insert>
+    <update id="update">
+        UPDATE mst.ptnr
+        <set>
+            <if test="changes.containsKey('ptnr_se_cd')">
+                ptnr_se_cd = #{changes.ptnr_se_cd,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('ptnr_nm')">
+                ptnr_nm = #{changes.ptnr_nm,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('ceo_nm')">
+                ceo_nm = #{changes.ceo_nm,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('indty_cd')">
+                indty_cd = #{changes.indty_cd,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('chrg_nm')">
+                chrg_nm = #{changes.chrg_nm,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('chrg_tel_no')">
+                chrg_tel_no = #{changes.chrg_tel_no,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('txinv_email_addr')">
+                txinv_email_addr = #{changes.txinv_email_addr,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('bank_cd')">
+                bank_cd = #{changes.bank_cd,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('acnt_no')">
+                acnt_no = #{changes.acnt_no,jdbcType=VARCHAR},
+            </if>
+            <if test="changes.containsKey('dpstr_nm')">
+                dpstr_nm = #{changes.dpstr_nm,jdbcType=VARCHAR},
+            </if>
+            updated_by = #{actor,jdbcType=BIGINT}
+        </set>
+        WHERE ptnr_id = #{id}
+    </update>
+    <insert id="history">
+        INSERT INTO sys.data_chg_hist (
+            tbl_nm, obj_rec_id, data_chg_ty_cd, clmn_nm, bfr_val, aft_val, chg_user_id
+        )
+        VALUES (
+            'mst.ptnr', CAST(#{id} AS VARCHAR), #{type}, #{column,jdbcType=VARCHAR},
+            #{before,jdbcType=VARCHAR}, #{after,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+</mapper>

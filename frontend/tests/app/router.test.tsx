@@ -167,6 +167,12 @@ beforeEach(() => {
     "fetch",
     vi.fn().mockImplementation((path: string) => {
       if (path === "/api/menus") return Promise.resolve(ok(menus));
+      if (path.startsWith("/api/codes/")) return Promise.resolve(ok([]));
+      if (path.startsWith("/api/partners?")) {
+        return Promise.resolve(
+          ok({ items: [], total: 0, page: 1, size: 50, sort: "ptnr_nm,asc" }),
+        );
+      }
       if (path === "/api/admin/code-groups")
         return Promise.resolve(ok(codeGroups));
       if (path === "/api/admin/code-groups/JOB/codes")
@@ -201,6 +207,16 @@ it.each(ids)(
           screen.getByRole("tablist", { name: "공통코드 관리" }),
         ).getAllByRole("tab"),
       ).toHaveLength(4);
+      expect(
+        screen.queryByText("이 화면은 다음 단계에서 만듭니다."),
+      ).not.toBeInTheDocument();
+    } else if (id === "UI-15") {
+      expect(
+        await screen.findByTestId("partner-sales-part-screen"),
+      ).toBeVisible();
+      expect(
+        await screen.findByText("조건에 맞는 결과가 없습니다."),
+      ).toBeVisible();
       expect(
         screen.queryByText("이 화면은 다음 단계에서 만듭니다."),
       ).not.toBeInTheDocument();
@@ -379,6 +395,43 @@ it("공통코드 초안은 메뉴와 브라우저 이동 취소 후 유지되고
   await waitFor(() => expect(router.state.location.pathname).toBe("/UI-16"));
   expect(useNavigation.getState().dirty["UI-27"]).not.toBe(true);
   expect(screen.queryByTestId("common-code-screen")).not.toBeInTheDocument();
+  expect(vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method)).toBe(
+    true,
+  );
+});
+
+it("거래처 메뉴 진입 후 dirty 초안은 메뉴·주소 이탈 취소 때 보존된다", async () => {
+  const router = mount("/UI-16");
+  await screen.findByRole("heading", { name: "화면 UI-16", level: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "업무" }));
+  fireEvent.click(screen.getByRole("link", { name: "화면 UI-15" }));
+  expect(await screen.findByTestId("partner-sales-part-screen")).toBeVisible();
+  expect(router.state.location.pathname).toBe("/UI-15");
+  fireEvent.click(screen.getByTestId("PTNR-CREATE-OPEN"));
+  fireEvent.change(screen.getByLabelText("상호 *"), {
+    target: { value: "보존할 거래처" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "대시보드" }));
+  fireEvent.click(await screen.findByRole("button", { name: "계속 작성" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(router.state.location.pathname).toBe("/UI-15");
+  expect(screen.getByLabelText("상호 *")).toHaveValue("보존할 거래처");
+  await act(async () => {
+    void router.navigate("/UI-16");
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "계속 작성" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(router.state.location.pathname).toBe("/UI-15");
+  expect(screen.getByLabelText("상호 *")).toHaveValue("보존할 거래처");
+  expect(useNavigation.getState().dirty["UI-15"]).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "대시보드" }));
+  fireEvent.click(await screen.findByRole("button", { name: "나가기" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/UI-16"));
+  expect(useNavigation.getState().dirty["UI-15"]).not.toBe(true);
   expect(vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method)).toBe(
     true,
   );

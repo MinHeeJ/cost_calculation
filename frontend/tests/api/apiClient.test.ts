@@ -1,5 +1,11 @@
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  partnersApi,
+  disablePartners,
+  enablePartner,
+  getPartnerOptions,
+  getPartnerAssignments,
+  getPartnerHistory,
   getMenus,
   getMonthClose,
   getHealth,
@@ -314,3 +320,92 @@ it.each(["DUPLICATE_CODE", "SYSTEM_CODE_LOCKED", "CLOSED_MONTH"])(
     expect(fetcher).toHaveBeenCalledTimes(1);
   },
 );
+
+it("거래처 registry는 선택 행의 ID와 승인된 목록 조건을 상대 경로에 전달한다", async () => {
+  const fetcher = vi.fn().mockImplementation(() => Promise.resolve(ok([])));
+  vi.stubGlobal("fetch", fetcher);
+  const selected = { id: 731 };
+  await partnersApi.list({
+    kind: "VEND",
+    useYn: "ALL",
+    q: "검색",
+    page: 2,
+    size: 20,
+    sort: "ptnr_nm,desc",
+  });
+  await partnersApi.detail(selected.id);
+  await getPartnerAssignments(selected.id);
+  await getPartnerHistory(selected.id);
+  await getPartnerOptions("CUST");
+  const [listPath, ...paths] = fetcher.mock.calls.map(([path]) => path);
+  expect(
+    Object.fromEntries(new URLSearchParams(listPath.split("?")[1])),
+  ).toEqual({
+    kind: "VEND",
+    useYn: "ALL",
+    q: "검색",
+    page: "2",
+    size: "20",
+    sort: "ptnr_nm,desc",
+  });
+  expect(paths).toEqual([
+    `/api/partners/${selected.id}`,
+    `/api/partners/${selected.id}/assignments`,
+    `/api/partners/${selected.id}/history`,
+    "/api/partners/options?kind=CUST",
+  ]);
+  expect(
+    fetcher.mock.calls.every(
+      ([, init]) => !new Headers(init.headers).has("Authorization"),
+    ),
+  ).toBe(true);
+});
+
+it("거래처 registry 쓰기는 상세/결과를 한 번만 풀고 PUT의 불변 번호를 제외한다", async () => {
+  const saved = { id: 732, no: "C-732", ptnrNm: "저장 거래처", useYn: "Y" };
+  const result = {
+    disabledIds: [saved.id],
+    disabledCount: 1,
+    inUseCount: 0,
+    alreadyDisabledCount: 0,
+    excluded: [],
+  };
+  const fetcher = vi
+    .fn()
+    .mockImplementation((path: string) =>
+      Promise.resolve(ok(path.endsWith("/disable") ? result : saved)),
+    );
+  vi.stubGlobal("fetch", fetcher);
+  const draft = {
+    ptnrSeCd: "CUST",
+    ptnrNm: saved.ptnrNm,
+    bizRegNo: "1234567890",
+    ceoNm: "",
+    indtyCd: "",
+    chrgNm: "",
+    chrgTelNo: "",
+    txinvEmailAddr: "tax@example.test",
+    bankCd: "",
+    acntNo: "",
+    dpstrNm: "",
+  };
+  await expect(partnersApi.create(draft)).resolves.toEqual(saved);
+  await expect(partnersApi.update(saved.id, draft)).resolves.toEqual(saved);
+  await expect(disablePartners([saved.id])).resolves.toEqual(result);
+  await expect(enablePartner(saved.id)).resolves.toEqual(saved);
+  const calls = fetcher.mock.calls;
+  expect(calls.map(([path, init]) => [path, init.method])).toEqual([
+    ["/api/partners", "POST"],
+    [`/api/partners/${saved.id}`, "PUT"],
+    ["/api/partners/disable", "POST"],
+    [`/api/partners/${saved.id}/enable`, "POST"],
+  ]);
+  expect(JSON.parse(calls[0][1].body)).toHaveProperty(
+    "bizRegNo",
+    draft.bizRegNo,
+  );
+  expect(JSON.parse(calls[1][1].body)).not.toHaveProperty("bizRegNo");
+  expect(JSON.parse(calls[1][1].body)).not.toHaveProperty("acntNo");
+  expect(JSON.parse(calls[2][1].body)).toEqual({ ids: [saved.id] });
+  expect(calls[3][1].body).toBeUndefined();
+});
