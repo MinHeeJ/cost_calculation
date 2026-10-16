@@ -4,6 +4,7 @@ import type { ScreenDefinition } from "./registry";
 import { TitleBar } from "./TitleBar";
 import { PeriodBar } from "./PeriodBar";
 import styles from "./Shared.module.css";
+import { CommonCodeScreen } from "../commoncode/CommonCodeScreen";
 
 /** Every canonical route shares this placeholder; mobile aliases are not separate routes. */
 export function PlaceholderScreen({
@@ -32,10 +33,14 @@ export function PlaceholderScreen({
       <TitleBar screenId={screen.screenId} name={name} groupName={groupName} />
       <div className={styles.page}>
         <PeriodBar screen={screen} />
-        <div className={styles.placeholder}>
-          <PanelsTopLeft size={32} strokeWidth={1.5} aria-hidden="true" />
-          <p>이 화면은 다음 단계에서 만듭니다.</p>
-        </div>
+        {screen.screenId === "UI-27" ? (
+          <CommonCodeScreen />
+        ) : (
+          <div className={styles.placeholder}>
+            <PanelsTopLeft size={32} strokeWidth={1.5} aria-hidden="true" />
+            <p>이 화면은 다음 단계에서 만듭니다.</p>
+          </div>
+        )}
       </div>
     </section>
   );

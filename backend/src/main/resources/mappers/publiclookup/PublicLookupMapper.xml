@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.apiops.PublicLookupMapper">
+    <resultMap id="choice" type="com.sicost.apiops.CodeChoiceRow">
+        <id column="dtl_cd" property="code" />
+        <result column="cd_nm" property="name" />
+        <result column="attr1_val" property="attr1" />
+        <result column="attr2_val" property="attr2" />
+        <result column="attr3_val" property="attr3" />
+    </resultMap>
+    <resultMap id="parameter" type="com.sicost.apiops.ParameterLookupRow">
+        <id column="oprt_std_id" property="oprtStdId" />
+        <id column="aply_bgn_ym" property="aplyBgnYm" />
+        <result column="oprt_std_nm" property="oprtStdNm" />
+        <result column="num_val" property="numVal" />
+        <result column="txt_val" property="txtVal" />
+        <result column="unit_nm" property="unitNm" />
+        <result column="use_plc_desc" property="usePlcDesc" />
+    </resultMap>
+    <!-- 그룹 존재와 선택지 유무를 구분한다. 그룹 사용 여부는 상세 Y 필터를 대체하지 않는다. -->
+    <select id="groupExists" resultType="boolean">
+        SELECT EXISTS (
+            SELECT 1
+            FROM cmn.cd_grp
+            WHERE cd_grp_id = #{group}
+        )
+    </select>
+    <select id="selectChoices" resultMap="choice">
+        SELECT dtl_cd, cd_nm, attr1_val, attr2_val, attr3_val
+        FROM cmn.cd_dtl
+        WHERE cd_grp_id = #{group}
+            AND use_yn = 'Y'
+        ORDER BY sort_seq ASC, dtl_cd ASC
+    </select>
+    <select id="selectParameter" resultMap="parameter">
+        SELECT oprt_std_id, aply_bgn_ym, oprt_std_nm, num_val, txt_val, unit_nm, use_plc_desc
+        FROM cmn.oprt_std
+        WHERE oprt_std_id = #{key}
+            AND aply_bgn_ym &lt;= #{month}
+        ORDER BY aply_bgn_ym DESC
+        LIMIT 1
+    </select>
+</mapper>

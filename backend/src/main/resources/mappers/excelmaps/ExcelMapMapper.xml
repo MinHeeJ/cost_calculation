@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "https://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.sicost.excelmaps.ExcelMapMapper">
+    <resultMap id="excelMapRow" type="com.sicost.excelmaps.ExcelMapRow">
+        <result column="map_id" property="mapId" />
+        <result column="excel_lbl_nm" property="excelLblNm" />
+        <result column="trns_cd_grp_id" property="trnsCdGrpId" />
+        <result column="trns_cd" property="trnsCd" />
+        <result column="map_role_cd" property="mapRoleCd" />
+        <result column="rmrk_desc" property="rmrkDesc" />
+        <result column="use_yn" property="useYn" />
+        <result column="cd_grp_nm" property="cdGrpNm" />
+        <result column="cd_nm" property="cdNm" />
+    </resultMap>
+    <sql id="projection">
+        SELECT e.map_id,
+            e.excel_lbl_nm,
+            e.trns_cd_grp_id,
+            e.trns_cd,
+            e.map_role_cd,
+            e.rmrk_desc,
+            e.use_yn,
+            g.cd_grp_nm,
+            d.cd_nm
+        FROM cmn.excel_map e
+        JOIN cmn.cd_grp g ON g.cd_grp_id = e.trns_cd_grp_id
+        JOIN cmn.cd_dtl d ON d.cd_grp_id = e.trns_cd_grp_id AND d.dtl_cd = e.trns_cd
+    </sql>
+    <select id="selectAll" resultMap="excelMapRow">
+        <include refid="projection" />
+        ORDER BY e.excel_lbl_nm, e.map_id
+    </select>
+    <select id="selectById" resultMap="excelMapRow">
+        <include refid="projection" />
+        WHERE e.map_id = #{id}
+    </select>
+    <select id="selectCodeUse" resultType="string">
+        SELECT use_yn
+        FROM cmn.cd_dtl
+        WHERE cd_grp_id = #{group}
+            AND dtl_cd = #{code}
+    </select>
+    <select id="countDuplicate" resultType="int">
+        SELECT COUNT(*)
+        FROM cmn.excel_map
+        WHERE excel_lbl_nm = #{excelLblNm}
+            AND trns_cd_grp_id = #{trnsCdGrpId}
+            AND trns_cd = #{trnsCd}
+    </select>
+    <insert id="insert"
+        useGeneratedKeys="true"
+        keyProperty="row.mapId"
+        keyColumn="map_id">
+        INSERT INTO cmn.excel_map (
+            excel_lbl_nm, trns_cd_grp_id, trns_cd, map_role_cd, rmrk_desc, use_yn, created_by
+        )
+        VALUES (
+            #{row.excelLblNm}, #{row.trnsCdGrpId}, #{row.trnsCd}, #{row.mapRoleCd},
+            #{row.rmrkDesc,jdbcType=VARCHAR}, 'Y', #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+    <update id="update">
+        UPDATE cmn.excel_map
+        SET map_role_cd = #{mapRoleCd},
+            rmrk_desc = #{rmrkDesc,jdbcType=VARCHAR},
+            use_yn = #{useYn}
+        WHERE map_id = #{mapId}
+    </update>
+    <insert id="insertHistory">
+        INSERT INTO cmn.cd_hist (
+            cd_grp_id, dtl_cd, cd_chg_ty_cd, item_nm, bfr_val, aft_val, chg_user_id
+        )
+        VALUES (
+            #{row.trnsCdGrpId}, #{row.trnsCd}, #{type}, #{item},
+            #{before,jdbcType=VARCHAR}, #{after,jdbcType=VARCHAR}, #{actor,jdbcType=BIGINT}
+        )
+    </insert>
+</mapper>

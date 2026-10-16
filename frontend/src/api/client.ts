@@ -7,6 +7,7 @@ export class RequestError extends Error {
     public readonly source: "server" | "client",
     public readonly status: number | null,
     public readonly field: string | null = null,
+    public readonly code: string | null = null,
   ) {
     super(message);
   }
@@ -38,6 +39,18 @@ export async function request<T>(
       null,
     );
   }
+  const id = response.headers.get("X-Request-Id");
+  if (response.status === 204) {
+    if (!id?.trim()) {
+      throw new RequestError(
+        "응답 문의 번호가 없습니다.",
+        trace,
+        "client",
+        response.status,
+      );
+    }
+    return undefined as T;
+  }
   let body: ApiResponse<T> | ApiError;
   try {
     body = await response.json();
@@ -49,7 +62,6 @@ export async function request<T>(
       response.status,
     );
   }
-  const id = response.headers.get("X-Request-Id");
   if (
     !id ||
     id !== body.meta?.requestId ||
@@ -74,6 +86,7 @@ export async function request<T>(
       "server",
       response.status,
       error.field ?? null,
+      error.code ?? null,
     );
   }
   return body.data;

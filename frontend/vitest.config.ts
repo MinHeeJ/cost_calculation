@@ -9,6 +9,8 @@ export default defineConfig({
     include: [
       "tests/**/*.test.{ts,tsx}",
       "src/pages/shared/**/*.test.{ts,tsx}",
+      "src/pages/codegroups/**/*.test.{ts,tsx}",
+      "src/pages/commoncode/**/*.test.{ts,tsx}",
     ],
     restoreMocks: true,
   },
