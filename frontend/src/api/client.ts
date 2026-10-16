@@ -8,6 +8,7 @@ export class RequestError extends Error {
     public readonly status: number | null,
     public readonly field: string | null = null,
     public readonly code: string | null = null,
+    public readonly details: unknown = null,
   ) {
     super(message);
   }
@@ -87,6 +88,7 @@ export async function request<T>(
       response.status,
       error.field ?? null,
       error.code ?? null,
+      body,
     );
   }
   return body.data;

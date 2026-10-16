@@ -1,8 +1,9 @@
 openapi: 3.0.3
 info:
-  title: SI 프로젝트·원가 관리 기반 HTTP 계약
+  title: SI 프로젝트·원가 관리 — BASIC-93 거래처 변경 계약
   version: 0.1.0
-  description: BASIC-91 검토된 구현 인계. 무인증 GET3개, MyBatis, 원본 SQL·동일 시드·공통 응답 계약.
+  description: 기존 기반 GET3개 보존 및 거래처9개 추가. MyBatis·V1/V2 보존·BANK V3. 구분 변경 허용, 기존 연결 유지. 명세 검토 결과이며 제품 구현/시험/승인과
+    별도.
 security: []
 x-handoff-status: ready_for_review
 paths:
@@ -44,10 +45,9 @@ paths:
       x-pagination:
         paginated: false
         reason: 설정 메뉴 전체 트리
-      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을
-        404로 추정하지 않는다.
-      description: 무인증 sys.menu WHERE use_yn=Y, 부모별 sort_seq/menu_id 순 전체 트리. nullable
-        icon/screenId와 mobile 변환. data 배열.
+      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을 404로 추정하지 않는다.
+      description: 무인증 sys.menu WHERE use_yn=Y, 부모별 sort_seq/menu_id 순 전체 트리. nullable icon/screenId와 mobile 변환.
+        data 배열.
       x-business-rules:
       - use_yn=Y만 반환하고 sort_seq 순으로 정렬한다(REQ-074)
       - service DataScope 인자는 현재 ALL이며 역할 seed로 조회를 차단하지 않는다(REQ-039, REQ-002)
@@ -56,14 +56,11 @@ paths:
         X-Request-Id와 일치.
       - 메뉴는 전체2단트리·use_yn Y·부모별 sort_seq/menu_id 순. 트리와 health는 비페이지 조회다.
       x-required-tests:
-      - 'happy: V1 sys.menu 묶음 10행·화면 31행으로 GET /api/menus 호출 -> menuId/name/screenId/icon/mobile/children
-        트리에서 화면 31개 관찰'
-      - 'auth: Authorization·세션 없이 메뉴 조회 -> 200; sys.role_menu_auth의 N으로 401/403 생성하지
-        않음'
-      - 'business: 격리 sys.menu에 use_yn=N 행과 서로 다른 sort_seq 구성 후 조회 -> N 노드 제외 및 Y
-        형제 노드 정렬 순서 관찰'
-      - 'side-effect: sys.menu 행·감사 필드 스냅샷 후 조회 -> 동일 행·필드 유지 및 service DataScope
-        ALL 관찰'
+      - 'happy: V1 sys.menu 묶음 10행·화면 31행으로 GET /api/menus 호출 -> menuId/name/screenId/icon/mobile/children 트리에서
+        화면 31개 관찰'
+      - 'auth: Authorization·세션 없이 메뉴 조회 -> 200; sys.role_menu_auth의 N으로 401/403 생성하지 않음'
+      - 'business: 격리 sys.menu에 use_yn=N 행과 서로 다른 sort_seq 구성 후 조회 -> N 노드 제외 및 Y 형제 노드 정렬 순서 관찰'
+      - 'side-effect: sys.menu 행·감사 필드 스냅샷 후 조회 -> 동일 행·필드 유지 및 service DataScope ALL 관찰'
       parameters: []
   /api/month-close:
     get:
@@ -103,10 +100,8 @@ paths:
       x-pagination:
         paginated: false
         reason: 요청한 from/to로 한정한 월 상태 배열
-      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을
-        404로 추정하지 않는다.
-      description: from/to 필수 YYYY-MM, from<=to; 지정 범위의 모든 월을 반환하고 누락 월은 OPEN. DB
-        INSERT 없음. data 배열.
+      x-error-policy: 400 입력 오류·500 서버 오류. 404 공통 모델은 components에 보존하지만 빈 collection을 404로 추정하지 않는다.
+      description: from/to 필수 YYYY-MM, from<=to; 지정 범위의 모든 월을 반환하고 누락 월은 OPEN. DB INSERT 없음. data 배열.
       parameters:
       - $ref: '#/components/parameters/From'
       - $ref: '#/components/parameters/To'
@@ -117,17 +112,15 @@ paths:
       - 사용자 선택을 이어 MyBatis·blocking Mapper를 사용하고 sys.menu·fin.mth_cls만 런타임 매핑한다.
       - 공통 성공 {success:true,data:결과,meta:{requestId}}, 실패 {success:false,code,message,field,requestId,meta:{requestId}}.
         X-Request-Id와 일치.
-      - from/to 필수 YYYY-MM·from<=to; 누락/형식/역전400(field). 조회 중 누락 월 OPEN은 반환만 하며 저장하지
-        않는다.
+      - from/to 필수 YYYY-MM·from<=to; 누락/형식/역전400(field). 조회 중 누락 월 OPEN은 반환만 하며 저장하지 않는다.
       x-required-tests:
-      - 'happy: V2 후 GET /api/month-close?from=2026-09&to=2026-10 호출 -> month=2026-09/status=CLOSED
-        및 month=2026-10/status=OPEN 관찰'
+      - 'happy: V2 후 GET /api/month-close?from=2026-09&to=2026-10 호출 -> month=2026-09/status=CLOSED 및 month=2026-10/status=OPEN
+        관찰'
       - 'auth: 인증 없이 월마감 조회 -> 200; CLOSED라는 이유로 403 거부하지 않음'
       - 'validation: from=2026-13&to=2026-10 호출 -> 400 및 ApiError.field=from 관찰'
-      - 'business: 격리 fixture에 요청 월 fin.mth_cls 행이 없는 상태로 상태 해석 호출 -> OPEN 관찰; HTTP
-        배열 확장 assertion은 OQ-003 승인까지 차단'
-      - 'side-effect: fin.mth_cls 행·cls_at/rls_at 스냅샷 후 조회 -> 기존 필드 동일 및 누락 월 새 행
-        없음 관찰'
+      - 'business: 격리 fixture에 요청 월 fin.mth_cls 행이 없는 상태로 상태 해석 호출 -> OPEN 관찰; HTTP 배열 확장 assertion은 OQ-003 승인까지
+        차단'
+      - 'side-effect: fin.mth_cls 행·cls_at/rls_at 스냅샷 후 조회 -> 기존 필드 동일 및 누락 월 새 행 없음 관찰'
   /api/health:
     get:
       operationId: getHealth
@@ -173,6 +166,733 @@ paths:
       - 공통 성공 {success:true,data:결과,meta:{requestId}}, 실패 {success:false,code,message,field,requestId,meta:{requestId}}.
         X-Request-Id와 일치.
       - 메뉴는 전체2단트리·use_yn Y·부모별 sort_seq/menu_id 순. 트리와 health는 비페이지 조회다.
+  /api/partners:
+    get:
+      operationId: getPartners
+      summary: 거래처 조건별 목록 조회
+      security: []
+      x-related-requirements:
+      - REQ-109
+      - REQ-114
+      - REQ-123
+      - REQ-124
+      - REQ-130
+      - REQ-131
+      - REQ-132
+      - REQ-134
+      - REQ-135
+      x-permission-key: UI-15.read
+      parameters:
+      - name: kind
+        in: query
+        required: false
+        description: 생략은 전체. CUST는 CUST+BOTH, VEND는 VEND+BOTH, BOTH는 BOTH
+        schema:
+          type: string
+          enum:
+          - CUST
+          - VEND
+          - BOTH
+      - name: useYn
+        in: query
+        required: false
+        description: 생략 Y, N은 중지, ALL은 사용 여부 조건 제외
+        schema:
+          type: string
+          enum:
+          - Y
+          - N
+          - ALL
+          default: Y
+      - name: q
+        in: query
+        required: false
+        description: 상호 ILIKE 부분 일치 OR 하이픈 제거 사업자번호 검색. 다른 조건과 AND
+        schema:
+          type: string
+      - name: page
+        in: query
+        required: false
+        description: 1부터 시작
+        schema:
+          type: integer
+          minimum: 1
+          default: 1
+      - name: size
+        in: query
+        required: false
+        description: 거래처 목록 기본 50; 기존 공통 허용 크기20/50/100
+        schema:
+          type: integer
+          enum:
+          - 20
+          - 50
+          - 100
+          default: 50
+      - name: sort
+        in: query
+        required: false
+        description: 허용된 목록 열명,asc 또는 열명,desc; 동률 ptnr_id ASC. 미지원 필드/방향400 field=sort. 계좌 원문 정렬/SQL 보간 금지. bank_account_display는
+          이미 마스킹된 은행명·끝4자리 표현만 정렬하며 계좌 원문으로 정렬하지 않는다.
+        schema:
+          type: string
+          default: ptnr_nm,asc
+          enum:
+          - ptnr_no,asc
+          - ptnr_no,desc
+          - ptnr_se_cd,asc
+          - ptnr_se_cd,desc
+          - ptnr_nm,asc
+          - ptnr_nm,desc
+          - biz_reg_no,asc
+          - biz_reg_no,desc
+          - ceo_nm,asc
+          - ceo_nm,desc
+          - indty_cd,asc
+          - indty_cd,desc
+          - chrg_nm,asc
+          - chrg_nm,desc
+          - chrg_tel_no,asc
+          - chrg_tel_no,desc
+          - use_yn,asc
+          - use_yn,desc
+          - ongoing_project_count,asc
+          - ongoing_project_count,desc
+          - current_developer_count,asc
+          - current_developer_count,desc
+          - txinv_email_addr,asc
+          - txinv_email_addr,desc
+          - bank_account_display,asc
+          - bank_account_display,desc
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '200':
+          description: 조건 집합 전체 기준 정렬 후 50건 기본 페이지. 빈 결과 items=[]·total=0도 200
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerPage'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 진행 프로젝트는 PLAN/RUN/HOLD. 현재 투입은 ACTIVE AND bgn_dt<=Asia/Seoul 오늘<=end_dt AND 진행 프로젝트. 어제 철수·END·CANCELLED
+        제외.
+      - 고객 prj.cust_ptnr_id 집합과 협력 mst.dev.vndr_ptnr_id의 투입 프로젝트 집합을 BOTH에서 합집합 처리하고 프로젝트·dev_id 각각 중복 제거.
+      - 목록은 서버에서 은행명 …끝4자리만 투영하며 전체 acntNo·dpstrNm·bankCd를 JSON에 포함하지 않는다. 코드명은 cmn.cd_dtl.cd_nm.
+      x-side-effects:
+      - 조회 전후 mst.ptnr·관계 테이블·sys.data_chg_hist 불변. 누락을 조회로 INSERT하지 않는다.
+      x-state-transitions:
+      - 읽기 전용; use_yn·구분·감사 상태 전이 없음.
+      x-pagination:
+        paginated: true
+        page: query.page -> data.page
+        size: query.size -> data.size; default 50
+        total: data.total
+        items: data.items
+        decision: page>=1 기본1; size20/50/100 기본50; sort allowlist 기본ptnr_nm,asc; stable ptnr_id ASC
+      x-required-tests:
+      - 'happy: 사용3·중지1 fixture의 기본 조회 -> 200, data.total=3·상호순; kind=VEND -> VEND/BOTH만'
+      - 'auth: 인증 헤더/세션 없는 목록 조회 -> 200·success=true·meta.requestId 존재'
+      - 'validation: kind=INVALID 조회 -> 400 ApiError.field=kind·success=false'
+      - 'business: 진행2프로젝트·현재6줄5명 및 어제철수/END/CANCELLED 구성 -> 프로젝트2·인력5; BOTH 중복 제거'
+      - 'side-effect: 계좌 원문 fixture 조회 -> JSON 전체 계좌 없음·은행명 …끝4자리; DB·감사 동일'
+      - 'business: 51행에서 page 생략/size 생략 -> page1 items50 total51; page2 -> items1; page0/허용되지 않은 sort ->400 field'
+    post:
+      operationId: createPartner
+      summary: 거래처 등록
+      security: []
+      x-related-requirements:
+      - REQ-109
+      - REQ-111
+      - REQ-112
+      - REQ-113
+      - REQ-116
+      - REQ-121
+      - REQ-126
+      - REQ-137
+      - REQ-138
+      x-permission-key: UI-15.create
+      parameters: []
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '201':
+          description: 등록된 구분별 상세
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerDetail'
+                  required:
+                  - data
+        '409':
+          description: 사용 중지 거래처 포함 사업자번호 중복; message에 기존 상호. 행·이력 증가 없음
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiError'
+                - type: object
+                  properties:
+                    code:
+                      type: string
+                      enum:
+                      - DUPLICATE_BIZ_NO
+                  required:
+                  - code
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 구분·상호 누락/공백 또는 길이 초과는 400 field; ptnrNm 50, ceoNm/chrgNm/chrgTelNo 각20, txinvEmailAddr100, dpstrNm30자.
+      - CUST/BOTH 이메일 필수·이메일 형식 검증; VEND/BOTH 은행·숫자/하이픈 계좌8~20·예금주 필수. 비해당 필드는 NULL 저장.
+      - BANK·INDUSTRY·PARTNER_KIND·JOB 코드명은 기존 cmn.cd_dtl·useCodes external binding을 재사용하며 코드 조회 API를 새로 만들지 않는다.
+      - 동일 상호 허용. 잠금/version/If-Match 조건 없음; 마지막 완료 저장이 이긴다.
+      - bizRegNo는 숫자10자리 또는 하이픈 형식 입력을 000-00-00000으로 정규화. N 포함 중복 검사; DB unique 충돌도 409 DUPLICATE_BIZ_NO·기존 상호.
+      - 'DEC-PTNR-004: 실제 V1의 ptnr_id는 GENERATED BY DEFAULT AS IDENTITY, ptnr_no는 NOT NULL이며 기본값이 없다. 동일 트랜잭션에서
+        nextval(pg_get_serial_sequence(''mst.ptnr'',''ptnr_id''))로 ID를 확보하고 최소3자리 코드와 함께 단일 INSERT한 뒤 INSERT 감사1줄을
+        저장한다. C-001·C-999·C-1000·C-10000을 보존하며 lpad로 긴 ID를 자르지 않는다. DDL/임시번호/NULL 중간 행은 없다. 실패 시 본체·감사를 함께 rollback하고
+        sequence gap은 허용한다(REQ-106, REQ-116, REQ-138).'
+      - 실제 V1의 ptnr_id는 GENERATED BY DEFAULT AS IDENTITY, ptnr_no는 NOT NULL이며 기본값이 없다. 동일 트랜잭션에서 nextval(pg_get_serial_sequence('mst.ptnr','ptnr_id'))로
+        ID를 확보하고 최소3자리 코드와 함께 단일 INSERT한 뒤 INSERT 감사1줄을 저장한다. C-001·C-999·C-1000·C-10000을 보존하며 lpad로 긴 ID를 자르지 않는다.
+        DDL/임시번호/NULL 중간 행은 없다. 실패 시 본체·감사를 함께 rollback하고 sequence gap은 허용한다(REQ-106, REQ-116, REQ-138).
+      requestBody:
+        required: true
+        description: FR-010 입력 및 CMN-702 구분별 필수·bizRegNo 정규화
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnerCreateRequest'
+      x-side-effects:
+      - mst.ptnr 신규1행과 sys.data_chg_hist(tbl_nm='mst.ptnr',obj_rec_id=id,data_chg_ty_cd='INSERT') 정확히1행 동일 트랜잭션.
+        감사 실패 시 거래처도 rollback.
+      - 성공 후 options의 해당 kind+BOTH 및 사용 목록에서 관찰 가능. 실패는 거래처·이력 불변; 계좌 원문을 INSERT 감사 값/객체 직렬화로 남기지 않는다.
+      x-state-transitions:
+      - 미존재 -> use_yn=Y; ptnr_no 서버 생성; 기존 거래처 상태는 변경하지 않는다.
+      x-required-tests:
+      - 'happy: 미등록 숫자10자리·CUST 이메일 등록 -> 201, 상세 Y·정규화 번호·C-코드, options 재조회에 같은 id'
+      - 'auth: 인증 없이 유효 등록 -> 201·success=true·meta.requestId, 역할 거부 없음'
+      - 'validation: 9자리 번호/VEND 계좌누락/BOTH 이메일누락 각각 등록 -> 400 field=bizRegNo/acntNo/txinvEmailAddr; 거래처·이력 불변'
+      - 'business: N 거래처와 동일 번호 등록 -> 409 DUPLICATE_BIZ_NO·기존 상호 message, 행 증가 없음; 서로 다른 번호 동일 상호 -> 각201'
+      - 'side-effect: 격리 ID1/1000 등록 -> C-001/C-1000, 최초 INSERT부터 ptnr_no NOT NULL 충족, 감사1행; 감사 실패시 본체 rollback;
+        sequence gap 허용'
+  /api/partners/{id}:
+    get:
+      operationId: getPartner
+      summary: 거래처 기본 정보 조회
+      security: []
+      x-related-requirements:
+      - REQ-140
+      x-permission-key: UI-15.read
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: mst.ptnr.ptnr_id
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '200':
+          description: 구분별 상세; VEND 이메일·CUST 지급계좌 키 omission; 해당 계좌는 전체 번호
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerDetail'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - CUST 응답에 bankCd/acntNo/dpstrNm/bankName 없음. VEND 응답에 txinvEmailAddr 없음. VEND/BOTH 계좌는 전체 번호; N 거래처도 조회 가능.
+      x-side-effects:
+      - 조회 전후 mst.ptnr·관계 테이블·sys.data_chg_hist 불변. 누락을 조회로 INSERT하지 않는다.
+      x-state-transitions:
+      - 읽기 전용; use_yn·구분·감사 상태 전이 없음.
+      x-pagination:
+        paginated: false
+        reason: path id의 단일 상세 객체
+      x-required-tests:
+      - 'happy: VEND/CUST/BOTH 상세 조회 -> 200, 각 omission 및 해당 전체 계좌 확인; N이면 useYn=N'
+      - 'auth: 인증 없이 상세 -> 200; 민감 자리 이유로 403 생성 없음'
+      - 'validation: 형식 오류 id -> 400 ApiError.field=id'
+      - 'business: 미존재 id -> 404 ApiError; 중지 거래처는 200'
+      - 'side-effect: 상세 전후 DB/이력 snapshot -> 동일'
+    put:
+      operationId: updatePartner
+      summary: 거래처 정보 수정
+      security: []
+      x-related-requirements:
+      - REQ-110
+      - REQ-112
+      - REQ-113
+      - REQ-115
+      - REQ-117
+      - REQ-121
+      - REQ-126
+      - REQ-144
+      - REQ-145
+      - REQ-147
+      x-permission-key: UI-15.update
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: mst.ptnr.ptnr_id
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '200':
+          description: 변경 후 구분별 상세; 무변경도 200이며 updated_at·이력 불변
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerDetail'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 구분·상호 누락/공백 또는 길이 초과는 400 field; ptnrNm 50, ceoNm/chrgNm/chrgTelNo 각20, txinvEmailAddr100, dpstrNm30자.
+      - CUST/BOTH 이메일 필수·이메일 형식 검증; VEND/BOTH 은행·숫자/하이픈 계좌8~20·예금주 필수. 비해당 필드는 NULL 저장.
+      - BANK·INDUSTRY·PARTNER_KIND·JOB 코드명은 기존 cmn.cd_dtl·useCodes external binding을 재사용하며 코드 조회 API를 새로 만들지 않는다.
+      - 동일 상호 허용. 잠금/version/If-Match 조건 없음; 마지막 완료 저장이 이긴다.
+      - bizRegNo/biz_reg_no는 update allowlist 제외. 보내도 기존 사업자번호와 유일성 보존; 번호 변경을 UPDATE/감사하지 않는다.
+      - 변경 컬럼만 UPDATE하고 컬럼별 UPDATE 감사. 정규화·비해당 NULL 정리 후 실질 변경 없으면 updated_at과 감사 행수 그대로.
+      - 기존 계좌 변경 확인은 UI 선행 확인이며 취소하면 PUT 자체를 보내지 않는다. 서버에 확인 토큰/새 endpoint를 발명하지 않는다.
+      - 'DEC-PTNR-002: 사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+        연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143,
+        REQ-144).'
+      requestBody:
+        required: true
+        description: FR-010 입력 및 CMN-702 구분별 필수; bizRegNo/biz_reg_no 입력 제외·들어와도 불변
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnerUpdateRequest'
+      x-side-effects:
+      - 실질 변경과 sys.data_chg_hist(tbl_nm='mst.ptnr',obj_rec_id=id)의 컬럼별 UPDATE를 같은 트랜잭션으로 저장. 실패 시 둘 다 rollback.
+      - clmn_nm=acnt_no의 bfr_val/aft_val은 끝4자리만 저장. 은행·계좌·예금주 @Sensitive 자리를 유지. 비해당 칸 저장소 NULL, 상세 응답 omission.
+      x-state-transitions:
+      - use_yn 및 biz_reg_no 불변. 새 구분 필수 검증·비해당 필드NULL. 구분 변경 허용하며 기존 프로젝트/개발자/투입 연결은 그대로. 무변경이면 updated_at·감사 불변.
+      x-required-tests:
+      - 'happy: 기존 상호만 수정 PUT -> 200·상세 새 상호; 이력 UPDATE·ptnr_nm 이전/이후 정확히1행'
+      - 'auth: 인증 없는 유효 상호 수정 -> 200·success=true·meta.requestId'
+      - 'validation: VEND 필수 계좌 누락 수정 -> 400 field=acntNo·DB/이력 불변; bizRegNo 및 biz_reg_no 포함한 유효 수정 -> 기존 사업자번호
+        그대로'
+      - 'business: 동일값 PUT200·updated_at/감사 불변. 진행 고객프로젝트가 있는 CUST->VEND, 유효 소속 인력이 있는 VEND->CUST, BOTH->단일구분을 새
+        필수값과 함께 PUT ->200·새 구분; 원래 cust_ptnr_id/vndr_ptnr_id/투입 연결 모두 동일. 역할 제거409 없음. 잘못된 새 필수값400이면 구분/연결/이력 모두
+        불변.'
+      - 'side-effect: 기존 계좌 변경 후 재조회 -> 상세 전체 새 번호·이력 bfrVal/aftVal 끝4자리; 감사 실패 유도 -> 계좌 원문도 rollback; 확인 취소 ->
+        PUT 없음·DB/이력 불변'
+  /api/partners/disable:
+    post:
+      operationId: disablePartners
+      summary: 거래처 다건 사용 중지
+      security: []
+      x-related-requirements:
+      - REQ-118
+      - REQ-125
+      - REQ-126
+      - REQ-149
+      - REQ-150
+      - REQ-151
+      - REQ-153
+      x-permission-key: UI-15.delete
+      parameters: []
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '200':
+          description: 부분 성공·모두 제외도200. PartnerDisableResult로 실제 변경과 제외를 구분한다.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerDisableResult'
+                  required:
+                  - data
+        '404':
+          description: 중복 제거 후 하나라도 미존재 대상이 있으면 DML 전에404; 전체 본체·감사 불변
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ApiError'
+        '409':
+          description: ids 한 건이며 진행 프로젝트 또는 소속 인력 >0이면 PARTNER_IN_USE. 거래처별 진행 프로젝트 n건 / 소속 인력 n명 이유·건수; 상태·이력 불변
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiError'
+                - type: object
+                  properties:
+                    code:
+                      type: string
+                      enum:
+                      - PARTNER_IN_USE
+                    excluded:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PartnerDisableExclusion'
+                  required:
+                  - code
+                  - excluded
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 진행 프로젝트는 PLAN/RUN/HOLD. 현재 투입은 ACTIVE AND bgn_dt<=Asia/Seoul 오늘<=end_dt AND 진행 프로젝트. 어제 철수·END·CANCELLED
+        제외.
+      - 고객 prj.cust_ptnr_id 집합과 협력 mst.dev.vndr_ptnr_id의 투입 프로젝트 집합을 BOTH에서 합집합 처리하고 프로젝트·dev_id 각각 중복 제거.
+      - 소속 인력=mst.dev WHERE vndr_ptnr_id=id AND use_yn=Y AND (rsgn_dt IS NULL OR rsgn_dt>오늘). 오늘 퇴사자는 제외. 현재 투입
+        수와 혼동 금지.
+      - 진행 프로젝트>0 OR 소속 인력>0이면 제외, 이미 N이면 별도 제외; 나머지 Y만 N. 한 건 잔여 거래 거부는 409 PARTNER_IN_USE.
+      - 'DEC-PTNR-006: 실제 PageResult와 맞춰 page=1부터, 기본1, size=20/50/100·기본50으로 정한다. sort는 allowlist 필드와 asc/desc의
+        쉼표 표현이며 기본 ptnr_nm,asc, 동률 ptnr_id ASC다. 사용 전체는 useYn=ALL, 생략은 Y. 다건 결과는 disabledIds/disabledCount/inUseCount/alreadyDisabledCount/excluded(id,name,reason,ongoingProjectCount,affiliatedDeveloperCount)이다.
+        ids는 입력순 중복 제거, 일부 미존재면 DML 전404. 업무상 제외는 부분 성공200(중복 제거 후 한 건 거래 잔여는409); 기술/감사 실패는 변경 가능한 집합 전체 rollback한다.
+        미지정 세부사항의 구현 기본값이며 사용자 승인으로 꾸미지 않는다(REQ-134, REQ-150, REQ-151).'
+      - 중지 후 사용 목록/options 제외; 기존 프로젝트·인력 참조와 거래처 데이터·기존 이력은 삭제하지 않는다.
+      - 'DEC-PTNR-006: 실제 PageResult와 맞춰 page=1부터, 기본1, size=20/50/100·기본50으로 정한다. sort는 allowlist 필드와 asc/desc의
+        쉼표 표현이며 기본 ptnr_nm,asc, 동률 ptnr_id ASC다. 사용 전체는 useYn=ALL, 생략은 Y. 다건 결과는 disabledIds/disabledCount/inUseCount/alreadyDisabledCount/excluded(id,name,reason,ongoingProjectCount,affiliatedDeveloperCount)이다.
+        ids는 입력순 중복 제거, 일부 미존재면 DML 전404. 업무상 제외는 부분 성공200(중복 제거 후 한 건 거래 잔여는409); 기술/감사 실패는 변경 가능한 집합 전체 rollback한다.
+        미지정 세부사항의 구현 기본값이며 사용자 승인으로 꾸미지 않는다(REQ-134, REQ-150, REQ-151).'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PartnerDisableRequest'
+      x-side-effects:
+      - 실제 변경 거래처마다 use_yn=N과 sys.data_chg_hist(tbl_nm='mst.ptnr',obj_rec_id=id,data_chg_ty_cd='DISABLE')1행을 함께
+        저장; 제외 건은 updated_at·감사 불변.
+      - 모든 변경 가능 거래처와 해당 DISABLE 이력을 하나의 트랜잭션으로 저장. 업무상 제외는 변경하지 않는다. 기술/감사 실패면 변경 가능한 집합 전체 rollback. 기존 연결·이력·상호
+        보존.
+      x-state-transitions:
+      - 가능한 Y -> N; 거래 잔여 Y -> Y(제외); 이미 N -> N(이미 중지 제외). 물리 삭제 없음.
+      x-required-tests:
+      - 'happy: 중지가능2건 ids -> 200·disabledCount=2·두 id N·options 제외'
+      - 'auth: 인증 없이 중지가능1건 -> 200·success=true·meta.requestId'
+      - 'validation: ids 누락/빈 배열400 field=ids. [A,A,B]는 A,B 한 번씩 처리. [유효A,없는ID]는 사전404, A·감사 불변.'
+      - 'business: 가능2+진행프로젝트2건인1건 -> 200·disabledCount=2/inUseCount=1·excluded.reason에 진행 프로젝트 2건. 소속3명 한 건 ->
+        409 PARTNER_IN_USE·소속 인력 3명·Y 유지. 이미N1+가능Y1 -> disabledCount=1/alreadyDisabledCount=1; 모두N -> 변경0·이미중지 제외
+        건수; 모두 거래잔여 다건 -> 변경0·거래처별 이유'
+      - 'side-effect: 가능2+불가1 -> DISABLE2행·제외 감사없음·기존 연결 유지. 두번째 감사 실패 유도 -> 첫번째 포함 가능 집합의 본체·감사 전체 rollback.'
+  /api/partners/{id}/enable:
+    post:
+      operationId: enablePartner
+      x-no-request-body-reason: 대상 거래처는 path id로 정하고 N에서 Y로 전환하는 동작이므로 추가 입력 필드가 없다.
+      summary: 거래처 다시 사용
+      security: []
+      x-related-requirements:
+      - REQ-119
+      - REQ-126
+      - REQ-152
+      x-permission-key: UI-15.delete
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: mst.ptnr.ptnr_id
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '200':
+          description: 현재 Y 상세. N->Y는 실제 전환; 이미Y는 200 무변경
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      $ref: '#/components/schemas/PartnerDetail'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 중지 거래처 N만 Y로 전환하고 use_yn UPDATE 이력1줄. options가 기존 kind+BOTH·상호순 필터를 다시 적용.
+      - 'DEC-PTNR-005: 미지정 반복 요청의 구현 기본값: enable은 N→Y일 때만 UPDATE(use_yn) 감사1줄. 이미 Y이면 200으로 현재 상세를 반환하고 updated_at·감사를
+        변경하지 않는다. UI CTA는 N에서만 표시한다. 추가 사용자 승인 사실로 기록하지 않는다(REQ-119, REQ-152).'
+      description: path id가 유일한 입력이며 requestBody 없음. body 필드를 통해 구분/번호/계좌를 수정하지 않는다.
+      x-side-effects:
+      - use_yn=N->Y와 sys.data_chg_hist(tbl_nm='mst.ptnr',obj_rec_id=id,data_chg_ty_cd='UPDATE',clmn_nm='use_yn',bfr_val='N',aft_val='Y')1행
+        동일 트랜잭션. 실패 시 둘 다 rollback.
+      - 성공 후 사용 목록/options 재노출; 기존 연결과 계좌·사업자번호는 변경 없음.
+      x-state-transitions:
+      - 'N -> Y: UPDATE(use_yn)1줄. Y -> Y:200·updated_at/감사 불변.'
+      x-required-tests:
+      - 'happy: N 거래처 enable -> 200·useYn=Y, 해당 kind options에 id 재등장'
+      - 'auth: 인증 없이 N 거래처 enable -> 200·success=true·meta.requestId'
+      - 'validation: 형식 오류 id -> 400 field=id·DB/이력 불변; 미존재 id -> 404 ApiError'
+      - 'business: N->Y 후 해당kind+BOTH options 재노출. 이미Y에 반복 enable200·같은 상세·updated_at/감사행수 불변.'
+      - 'side-effect: N->Y 후 history/DB 조회 -> UPDATE·use_yn N→Y 정확히1행·번호/계좌 동일; 감사 실패 유도 -> N 유지·새 이력 없음'
+  /api/partners/{id}/history:
+    get:
+      operationId: getPartnerHistory
+      summary: 거래처 변경 이력 조회
+      security: []
+      x-related-requirements:
+      - REQ-115
+      - REQ-116
+      - REQ-117
+      - REQ-118
+      - REQ-119
+      - REQ-142
+      x-permission-key: UI-15.read
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: mst.ptnr.ptnr_id
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '200':
+          description: 해당 거래처 변경 이력 chg_at 최신순 전체 배열; 없으면 []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PartnerHistoryItem'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - tbl_nm='mst.ptnr' AND obj_rec_id=id로 격리. chg_at DESC, 처리자 NULL은 기본 사용자 표시용. 계좌 bfr_val/aft_val은 저장 시부터 끝4자리만;
+        등록 객체에도 원문 계좌 없음.
+      x-side-effects:
+      - 조회 전후 mst.ptnr·관계 테이블·sys.data_chg_hist 불변. 누락을 조회로 INSERT하지 않는다.
+      x-state-transitions:
+      - 읽기 전용; use_yn·구분·감사 상태 전이 없음.
+      x-pagination:
+        paginated: false
+        reason: 대상 거래처의 전체 배열; 원문은 이 collection의 page/size를 정의하지 않으므로 거래처 목록 페이지 규칙을 임의 전파하지 않는다.
+      x-required-tests:
+      - 'happy: 등록·상호수정 후 이력 -> 200·최신 UPDATE ptnr_nm 이전/이후 및 INSERT 기록'
+      - 'auth: 인증 없이 이력 -> 200·success=true·meta.requestId'
+      - 'validation: 형식 오류 id -> 400 field=id'
+      - 'business: 다른 거래처 이력 포함 fixture 조회 -> 대상 obj_rec_id만; 이력없음 []·미존재 거래처404'
+      - 'side-effect: 계좌변경 이력 조회 -> bfrVal/aftVal 끝4자리만·DB/감사 행수 그대로'
+  /api/partners/{id}/assignments:
+    get:
+      operationId: getPartnerAssignments
+      summary: 거래처 현재 투입 조회
+      security: []
+      x-related-requirements:
+      - REQ-123
+      - REQ-124
+      - REQ-141
+      x-permission-key: UI-15.read
+      parameters:
+      - name: id
+        in: path
+        required: true
+        description: mst.ptnr.ptnr_id
+        schema:
+          type: integer
+          format: int64
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '404':
+          $ref: '#/components/responses/Error404'
+        '200':
+          description: 현재 투입을 프로젝트명·이름순으로 반환; 없으면 []
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PartnerAssignmentItem'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - 진행 프로젝트는 PLAN/RUN/HOLD. 현재 투입은 ACTIVE AND bgn_dt<=Asia/Seoul 오늘<=end_dt AND 진행 프로젝트. 어제 철수·END·CANCELLED
+        제외.
+      - 고객 prj.cust_ptnr_id 집합과 협력 mst.dev.vndr_ptnr_id의 투입 프로젝트 집합을 BOTH에서 합집합 처리하고 프로젝트·dev_id 각각 중복 제거.
+      - 프로젝트명·이름 순; 소속은 vndr_ptnr_id NULL=자사, 아니면 해당 거래처 상호. JOB.cd_nm은 기존 useCodes/코드 저장소 재사용. 투입 행과 distinct 인원
+        집계는 구별한다.
+      x-side-effects:
+      - 조회 전후 mst.ptnr·관계 테이블·sys.data_chg_hist 불변. 누락을 조회로 INSERT하지 않는다.
+      x-state-transitions:
+      - 읽기 전용; use_yn·구분·감사 상태 전이 없음.
+      x-pagination:
+        paginated: false
+        reason: 대상 거래처의 전체 배열; 원문은 이 collection의 page/size를 정의하지 않으므로 거래처 목록 페이지 규칙을 임의 전파하지 않는다.
+      x-required-tests:
+      - 'happy: 협력사B 소속2명이 다른 고객프로젝트 현재투입 -> 200·2행·affiliationName=B·프로젝트명/이름순'
+      - 'auth: 인증 없이 현재 투입 -> 200·success=true·meta.requestId'
+      - 'validation: 형식 오류 id -> 400 field=id'
+      - 'business: 시작/종료 오늘 ACTIVE는 포함·어제철수/END/CANCELLED 제외·소속NULL은 자사·없으면 []'
+      - 'side-effect: 조회 전후 프로젝트/개발자/투입/감사 snapshot -> 동일'
+  /api/partners/options:
+    get:
+      operationId: getPartnerOptions
+      summary: 다른 화면용 거래처 선택 목록 조회
+      security: []
+      x-related-requirements:
+      - REQ-153
+      - REQ-154
+      x-permission-key: UI-15.read
+      parameters:
+      - name: kind
+        in: query
+        required: true
+        description: 요청한 kind와 BOTH만; 미지정 계약을 만들지 않도록 필수
+        schema:
+          type: string
+          enum:
+          - CUST
+          - VEND
+      responses:
+        '400':
+          $ref: '#/components/responses/Error400'
+        '500':
+          $ref: '#/components/responses/Error500'
+        '200':
+          description: use_yn=Y·kind+BOTH·ptnr_nm 순의 id/no/name 배열
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                allOf:
+                - $ref: '#/components/schemas/ApiResponse'
+                - type: object
+                  properties:
+                    data:
+                      type: array
+                      items:
+                        $ref: '#/components/schemas/PartnerOption'
+                  required:
+                  - data
+      x-business-rules:
+      - 'REQ-103/REQ-120: 무인증, PermissionService.can=true·DataScope.ALL. UI-15 권한 키는 연결 자리이며 역할 거부/401/403을 만들지
+        않는다.'
+      - use_yn=Y AND ptnr_se_cd IN (kind,BOTH); ptnr_nm ASC; id/no/name만 반환. 기존 중지 참조를 수정하거나 삭제하지 않는다.
+      x-side-effects:
+      - 조회 전후 mst.ptnr·관계 테이블·sys.data_chg_hist 불변. 누락을 조회로 INSERT하지 않는다.
+      x-state-transitions:
+      - 읽기 전용; use_yn·구분·감사 상태 전이 없음.
+      x-pagination:
+        paginated: false
+        reason: 다른 화면 선택용 전체 id/no/name 배열. 원문 DEC-703에 page/size 없음
+      x-required-tests:
+      - 'happy: CUST/VEND/BOTH·Y/N fixture kind=CUST -> 200·Y CUST/BOTH의 id/no/name만 상호순'
+      - 'auth: 인증 없이 options -> 200·success=true·meta.requestId'
+      - 'validation: kind=BOTH 또는 누락 -> 400 ApiError.field=kind'
+      - 'business: 중지후 options 제외·재사용후 재등장·해당 kind와 BOTH만'
+      - 'side-effect: options 호출 전후 거래처/이력 snapshot -> 동일'
   /api/admin/code-groups:
     get:
       operationId: getCodeGroups
@@ -225,17 +945,14 @@ paths:
           $ref: '#/components/responses/Error500'
       x-pagination:
         paginated: false
-        reason: 그룹·코드 전체 집합이 첫 그룹 선택, 코드 건수 및 기존 행 누락400 검증의 입력이다. 부분 페이지 저장으로 누락·삭제를
-          유발하지 않는다.
+        reason: 그룹·코드 전체 집합이 첫 그룹 선택, 코드 건수 및 기존 행 누락400 검증의 입력이다. 부분 페이지 저장으로 누락·삭제를 유발하지 않는다.
       x-business-rules:
-      - cmn.cd_grp 전체를 use_yn과 무관하게 sort_seq 순으로 조회한다. 그룹명·SYSTEM/BIZ·attr1~3_nm·코드
-        전체 건수를 반환한다. 첫 그룹 선택은 UI 소유다.
+      - cmn.cd_grp 전체를 use_yn과 무관하게 sort_seq 순으로 조회한다. 그룹명·SYSTEM/BIZ·attr1~3_nm·코드 전체 건수를 반환한다. 첫 그룹 선택은 UI 소유다.
       x-required-tests:
       - 'happy: 무인증 getCodeGroups 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getCodeGroups 조회 →200·401/403 없음.'
       - 'side-effect: getCodeGroups 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'business: V1 JOB 선택용 응답 →code_count12·attr1_nm 기본 단가(원); CONTRACT_TYPE →SYSTEM,
-        전체 sort_seq 정렬 확인.'
+      - 'business: V1 JOB 선택용 응답 →code_count12·attr1_nm 기본 단가(원); CONTRACT_TYPE →SYSTEM, 전체 sort_seq 정렬 확인.'
     post:
       operationId: createCodeGroup
       summary: 그룹 추가
@@ -291,29 +1008,22 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateCodeGroupRequest'
-      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로
-        확인하므로 data와 content를 반환하지 않는다.
+      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로 확인하므로 data와 content를 반환하지 않는다.
       x-side-effects:
       - 업무 행과 cmn.cd_hist를 같은 트랜잭션에서 커밋한다. 이력 기록 실패 시 업무 행도 전부 롤백한다.
-      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에
-        사용한다.
+      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에 사용한다.
       x-business-rules:
-      - 그룹 코드 대문자·_ 1~30, 이름1~100, attrN_nm 각50 이하를 검증한다. BIZ와 마지막 sort_seq로 INSERT하며
-        SYSTEM 유형을 입력받지 않는다.
+      - 그룹 코드 대문자·_ 1~30, 이름1~100, attrN_nm 각50 이하를 검증한다. BIZ와 마지막 sort_seq로 INSERT하며 SYSTEM 유형을 입력받지 않는다.
       - 그룹 추가는 ADD 이력 한 줄이며 cd_grp_id=새 그룹, dtl_cd=NULL이다. 기존 그룹의 코드 행을 복제하지 않는다.
       x-state-transitions:
       - 그룹 없음 + 유효 요청 → BIZ 그룹 마지막 순서 존재 및 ADD/dtl_cd NULL 이력 존재.
       - 검증 실패 또는 이력 INSERT 실패 → 그룹·이력 모두 요청 전 상태.
       x-required-tests:
-      - 'happy: 격리 fixture에서 미등록 TEST_GROUP/테스트 그룹을 POST →204·본문0바이트; getCodeGroups에서
-        BIZ·마지막 sort_seq 확인.'
+      - 'happy: 격리 fixture에서 미등록 TEST_GROUP/테스트 그룹을 POST →204·본문0바이트; getCodeGroups에서 BIZ·마지막 sort_seq 확인.'
       - 'auth: Authorization·쿠키 없이 미등록 TEST_GROUP을 POST →204; 그룹 재조회 존재, 401/403 없음.'
-      - 'validation: cd_grp_id=TEST1 또는 그룹명 빈 문자열로 POST →400·해당 ApiError.field; 그룹·이력
-        스냅샷 불변.'
-      - 'business: 새 그룹 추가 후 DB cd_grp_se_cd와 sort_seq 확인 →BIZ·기존 최대 다음 순서; 기존 그룹/코드
-        불변.'
-      - 'side-effect: 정상 POST 후 cd_hist 조회 →ADD·새 그룹·dtl_cd NULL·chg_user_id NULL;
-        이력 INSERT 실패 주입 후 재시도 →500·그룹/이력 모두 스냅샷 불변.'
+      - 'validation: cd_grp_id=TEST1 또는 그룹명 빈 문자열로 POST →400·해당 ApiError.field; 그룹·이력 스냅샷 불변.'
+      - 'business: 새 그룹 추가 후 DB cd_grp_se_cd와 sort_seq 확인 →BIZ·기존 최대 다음 순서; 기존 그룹/코드 불변.'
+      - 'side-effect: 정상 POST 후 cd_hist 조회 →ADD·새 그룹·dtl_cd NULL·chg_user_id NULL; 이력 INSERT 실패 주입 후 재시도 →500·그룹/이력 모두 스냅샷 불변.'
   /api/admin/code-groups/{group}/codes:
     get:
       operationId: getAdminCodes
@@ -374,17 +1084,14 @@ paths:
           $ref: '#/components/responses/Error500'
       x-pagination:
         paginated: false
-        reason: 그룹·코드 전체 집합이 첫 그룹 선택, 코드 건수 및 기존 행 누락400 검증의 입력이다. 부분 페이지 저장으로 누락·삭제를
-          유발하지 않는다.
+        reason: 그룹·코드 전체 집합이 첫 그룹 선택, 코드 건수 및 기존 행 누락400 검증의 입력이다. 부분 페이지 저장으로 누락·삭제를 유발하지 않는다.
       x-business-rules:
-      - 지정 그룹 cmn.cd_dtl 전체를 use_yn 무관 sort_seq 순으로 반환한다. N 행도 유지한다. 열 제목은 getCodeGroups의
-        attrN_nm을 쓴다.
+      - 지정 그룹 cmn.cd_dtl 전체를 use_yn 무관 sort_seq 순으로 반환한다. N 행도 유지한다. 열 제목은 getCodeGroups의 attrN_nm을 쓴다.
       x-required-tests:
       - 'happy: 무인증 getAdminCodes 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getAdminCodes 조회 →200·401/403 없음.'
       - 'side-effect: getAdminCodes 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'business: JOB OPS를 중지한 fixture에서 조회 →12행 중 OPS use_yn=N 유지·sort_seq 순; 빈
-        그룹은200/data 빈 배열, 미존재 그룹404.'
+      - 'business: JOB OPS를 중지한 fixture에서 조회 →12행 중 OPS use_yn=N 유지·sort_seq 순; 빈 그룹은200/data 빈 배열, 미존재 그룹404.'
     put:
       operationId: saveCodes
       summary: 전체 코드 저장·사용 전환
@@ -441,8 +1148,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '409':
-          description: 'DUPLICATE_CODE: 같은 그룹의 코드 중복. SYSTEM_CODE_LOCKED: SYSTEM의
-            신규 코드·금지 필드·사용 전환. 전체 코드와 이력은 미반영이다.'
+          description: 'DUPLICATE_CODE: 같은 그룹의 코드 중복. SYSTEM_CODE_LOCKED: SYSTEM의 신규 코드·금지 필드·사용 전환. 전체 코드와 이력은 미반영이다.'
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
@@ -458,46 +1164,29 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveCodesRequest'
-      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로
-        확인하므로 data와 content를 반환하지 않는다.
+      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로 확인하므로 data와 content를 반환하지 않는다.
       x-side-effects:
       - 업무 행과 cmn.cd_hist를 같은 트랜잭션에서 커밋한다. 이력 기록 실패 시 업무 행도 전부 롤백한다.
-      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에
-        사용한다.
+      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에 사용한다.
       x-business-rules:
-      - codes는 그룹 전체 목록이다. 기존 dtl_cd가 한 개라도 빠지면400(field=codes), 중복 dtl_cd는409 DUPLICATE_CODE/이미
-        있는 코드입니다. 어떤 오류라도 모든 코드·이력은 미반영이다.
-      - BIZ 신규 코드만 INSERT(use_yn=Y, created_by=NULL). 기존 dtl_cd는 바꾸지 않으며 이름·추가 값·순서·사용·적용일
-        중 변경 컬럼만 UPDATE(updated_at, updated_by=NULL). 잠금·버전 필드 없이 마지막 정상 저장이 이긴다.
-      - SYSTEM은 cd_nm·sort_seq만 변경한다. 신규 코드·attrN_val·aply_bgn_dt 변경 혼합은409 SYSTEM_CODE_LOCKED/시스템
-        코드는 이름과 순서만 바꿀 수 있습니다. use_yn 변경은409 SYSTEM_CODE_LOCKED/시스템 코드는 사용 중지할 수 없습니다.
-        허용 변경도 함께 롤백한다.
-      - 코드 대문자·숫자·_ 1~30, 이름1~100, 추가 값 각100 이하. 빈 코드는 코드를 입력하세요., 빈 이름은 이름을 입력하세요.로400.
-        신규 순서는 그룹 최대+1을 기본 입력하며 적용일은 저장·표시만 하고 계산에 쓰지 않는다.
-      - 신규 코드는 ADD 한 줄, 기존은 변경 항목마다 UPDATE. use_yn Y→N은 DISABLE, N→Y는 ENABLE 이력. 업무
-        참조 행은 변경하지 않으며 물리 DELETE는 제공하지 않는다.
-      - 전체 목록의 완전성은 행 식별자 집합에 적용한다. 선택적 attrN_val·aply_bgn_dt 생략 시 기존 값 유지, 명시 NULL은
-        값 비우기다. 신규 행 생략은 정본 nullable 값으로 저장한다. SYSTEM에는 생략과 기존 동일값을 허용하지만 실제 변경은409이다.
+      - codes는 그룹 전체 목록이다. 기존 dtl_cd가 한 개라도 빠지면400(field=codes), 중복 dtl_cd는409 DUPLICATE_CODE/이미 있는 코드입니다. 어떤 오류라도 모든 코드·이력은 미반영이다.
+      - BIZ 신규 코드만 INSERT(use_yn=Y, created_by=NULL). 기존 dtl_cd는 바꾸지 않으며 이름·추가 값·순서·사용·적용일 중 변경 컬럼만 UPDATE(updated_at, updated_by=NULL). 잠금·버전 필드 없이 마지막 정상 저장이 이긴다.
+      - SYSTEM은 cd_nm·sort_seq만 변경한다. 신규 코드·attrN_val·aply_bgn_dt 변경 혼합은409 SYSTEM_CODE_LOCKED/시스템 코드는 이름과 순서만 바꿀 수 있습니다. use_yn 변경은409 SYSTEM_CODE_LOCKED/시스템 코드는 사용 중지할 수 없습니다. 허용 변경도 함께 롤백한다.
+      - 코드 대문자·숫자·_ 1~30, 이름1~100, 추가 값 각100 이하. 빈 코드는 코드를 입력하세요., 빈 이름은 이름을 입력하세요.로400. 신규 순서는 그룹 최대+1을 기본 입력하며 적용일은 저장·표시만 하고 계산에 쓰지 않는다.
+      - 신규 코드는 ADD 한 줄, 기존은 변경 항목마다 UPDATE. use_yn Y→N은 DISABLE, N→Y는 ENABLE 이력. 업무 참조 행은 변경하지 않으며 물리 DELETE는 제공하지 않는다.
+      - 전체 목록의 완전성은 행 식별자 집합에 적용한다. 선택적 attrN_val·aply_bgn_dt 생략 시 기존 값 유지, 명시 NULL은 값 비우기다. 신규 행 생략은 정본 nullable 값으로 저장한다. SYSTEM에는 생략과 기존 동일값을 허용하지만 실제 변경은409이다.
       x-state-transitions:
       - BIZ 새 dtl_cd → use_yn Y/ADD. 기존 변경 항목 → 새 값/UPDATE.
       - BIZ Y→N → 관리 목록 유지·선택 제외/DISABLE; N→Y → 선택 복귀/ENABLE.
       - SYSTEM 이름·순서만 변경 → 저장/UPDATE; 금지 필드 혼합 →409 및 전체 코드·이력 요청 전 상태.
       - 기존 코드 누락·중복·한 행 오류·이력 실패 → 전체 행과 이력 요청 전 상태.
       x-required-tests:
-      - 'happy: JOB 전체12행에 TEST1/테스트·최대순서+1·Y를 추가해 PUT →204·본문0바이트; getAdminCodes/getCodes에서
-        TEST1 마지막, DB ADD 한 줄·created_by NULL.'
-      - 'auth: 인증 헤더·쿠키 없이 POSITION 전체 목록의 TL attr1_val을250000으로 PUT →204; DB 값250000
-        및 이력 chg_user_id NULL, 401/403 없음.'
-      - 'validation: JOB 기존 한 행 누락 PUT →400 field=codes; 빈 코드/이름 →400·코드를 입력하세요./이름을
-        입력하세요.; 코드 행·이력 스냅샷 모두 불변.'
-      - 'business: JOB BE를 중복해 PUT →409 DUPLICATE_CODE; CONTRACT_TYPE 전체목록에서 TK 이름
-        턴키(일괄)만 변경 →204; 같은 변경에 use_yn=N 혼합 →409 SYSTEM_CODE_LOCKED/시스템 코드는 사용 중지할
-        수 없습니다.·이름/이력 불변. 새 코드·추가값·적용일 변경도409·불변.'
-      - 'business: JOB OPS Y→N 전체 저장 →204·공통 조회 제외·관리 표 유지·DISABLE; N→Y →204·공통 조회
-        복귀·ENABLE. 같은 코드 이름을 서로 다른 두 요청으로 순차 저장 →마지막 정상 값 조회.'
-      - 'side-effect: POSITION TL 200000→250000 저장 →UPDATE/item_nm attr1_val/bfr_val
-        200000/aft_val 250000/chg_user_id NULL. 업무 참조 행 불변. 이력 INSERT 실패 주입 →500·그룹
-        전체 코드/이력 모두 스냅샷 불변.'
+      - 'happy: JOB 전체12행에 TEST1/테스트·최대순서+1·Y를 추가해 PUT →204·본문0바이트; getAdminCodes/getCodes에서 TEST1 마지막, DB ADD 한 줄·created_by NULL.'
+      - 'auth: 인증 헤더·쿠키 없이 POSITION 전체 목록의 TL attr1_val을250000으로 PUT →204; DB 값250000 및 이력 chg_user_id NULL, 401/403 없음.'
+      - 'validation: JOB 기존 한 행 누락 PUT →400 field=codes; 빈 코드/이름 →400·코드를 입력하세요./이름을 입력하세요.; 코드 행·이력 스냅샷 모두 불변.'
+      - 'business: JOB BE를 중복해 PUT →409 DUPLICATE_CODE; CONTRACT_TYPE 전체목록에서 TK 이름 턴키(일괄)만 변경 →204; 같은 변경에 use_yn=N 혼합 →409 SYSTEM_CODE_LOCKED/시스템 코드는 사용 중지할 수 없습니다.·이름/이력 불변. 새 코드·추가값·적용일 변경도409·불변.'
+      - 'business: JOB OPS Y→N 전체 저장 →204·공통 조회 제외·관리 표 유지·DISABLE; N→Y →204·공통 조회 복귀·ENABLE. 같은 코드 이름을 서로 다른 두 요청으로 순차 저장 →마지막 정상 값 조회.'
+      - 'side-effect: POSITION TL 200000→250000 저장 →UPDATE/item_nm attr1_val/bfr_val 200000/aft_val 250000/chg_user_id NULL. 업무 참조 행 불변. 이력 INSERT 실패 주입 →500·그룹 전체 코드/이력 모두 스냅샷 불변.'
   /api/codes/{group}:
     get:
       operationId: getCodes
@@ -563,14 +1252,12 @@ paths:
         paginated: false
         reason: 원문 공통 선택 목록 전체 Y 코드 배열. 선택지 일부를 페이지로 숨기지 않는다.
       x-business-rules:
-      - use_yn=Y인 코드만 sort_seq 순으로 code/name/attr1~3 투영해 반환한다. 기존 저장값 이름 표시를 위해 물리
-        행을 지우지 않으며 이 API의 Y 필터를 기존 참조 조회에 적용하지 않는다.
+      - use_yn=Y인 코드만 sort_seq 순으로 code/name/attr1~3 투영해 반환한다. 기존 저장값 이름 표시를 위해 물리 행을 지우지 않으며 이 API의 Y 필터를 기존 참조 조회에 적용하지 않는다.
       x-required-tests:
       - 'happy: 무인증 getCodes 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getCodes 조회 →200·401/403 없음.'
       - 'side-effect: getCodes 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'business: JOB OPS use_yn=N fixture 조회 →OPS 제외, code/name/attr1~3만 투영·sort_seq
-        순; 저장된 업무 OPS 참조와 이름 불변.'
+      - 'business: JOB OPS use_yn=N fixture 조회 →OPS 제외, code/name/attr1~3만 투영·sort_seq 순; 저장된 업무 OPS 참조와 이름 불변.'
   /api/admin/excel-maps:
     get:
       operationId: getExcelMaps
@@ -630,8 +1317,7 @@ paths:
       - 'happy: 무인증 getExcelMaps 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getExcelMaps 조회 →200·401/403 없음.'
       - 'side-effect: getExcelMaps 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'business: 동일 표기 다른 대상 및 사용N 행 구성 후 조회 →모두 표기순·cd_grp_nm/cd_nm 조인 결과, MAIN/SUB
-        보존.'
+      - 'business: 동일 표기 다른 대상 및 사용N 행 구성 후 조회 →모두 표기순·cd_grp_nm/cd_nm 조인 결과, MAIN/SUB 보존.'
     post:
       operationId: createExcelMap
       summary: 엑셀 대응 추가
@@ -673,8 +1359,7 @@ paths:
               schema:
                 $ref: '#/components/schemas/ApiError'
         '409':
-          description: 'DUPLICATE_CODE: 동일 excel_lbl_nm·trns_cd_grp_id·trns_cd 대응이
-            이미 존재한다. 이미 있는 대응입니다.'
+          description: 'DUPLICATE_CODE: 동일 excel_lbl_nm·trns_cd_grp_id·trns_cd 대응이 이미 존재한다. 이미 있는 대응입니다.'
           headers:
             X-Request-Id:
               $ref: '#/components/headers/RequestId'
@@ -690,34 +1375,24 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/CreateExcelMapRequest'
-      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로
-        확인하므로 data와 content를 반환하지 않는다.
+      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로 확인하므로 data와 content를 반환하지 않는다.
       x-side-effects:
       - 업무 행과 cmn.cd_hist를 같은 트랜잭션에서 커밋한다. 이력 기록 실패 시 업무 행도 전부 롤백한다.
-      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에
-        사용한다.
+      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에 사용한다.
       - 기존 업무 데이터와 다른 대응은 변경하지 않는다. 다음 업로드 소비만 새 대응을 사용하며 업로드 자체를 실행하지 않는다.
       x-business-rules:
-      - 표기1~100, 그룹·그 그룹의 사용 중 코드, MAIN/SUB, 메모200 이하를 검증한다. 빈 표기는400/엑셀 글자를 입력하세요.,
-        미선택은400/대응할 코드를 고르세요.
-      - (excel_lbl_nm,trns_cd_grp_id,trns_cd) 중복은409 DUPLICATE_CODE/이미 있는 대응입니다. 같은
-        표기를 다른 그룹·코드와 등록하는 것은 허용한다. use_yn=Y로 INSERT하고 ADD 이력을 같은 트랜잭션에 기록한다.
-      - 이력은 trns_cd_grp_id/trns_cd, item_nm=excel_map.{map_id}.{field}(ADD는excel_map.{map_id}),
-        전체 트랜잭션 원자성. 이전 업무 데이터 불변.
+      - 표기1~100, 그룹·그 그룹의 사용 중 코드, MAIN/SUB, 메모200 이하를 검증한다. 빈 표기는400/엑셀 글자를 입력하세요., 미선택은400/대응할 코드를 고르세요.
+      - (excel_lbl_nm,trns_cd_grp_id,trns_cd) 중복은409 DUPLICATE_CODE/이미 있는 대응입니다. 같은 표기를 다른 그룹·코드와 등록하는 것은 허용한다. use_yn=Y로 INSERT하고 ADD 이력을 같은 트랜잭션에 기록한다.
+      - 이력은 trns_cd_grp_id/trns_cd, item_nm=excel_map.{map_id}.{field}(ADD는excel_map.{map_id}), 전체 트랜잭션 원자성. 이전 업무 데이터 불변.
       x-state-transitions:
       - 미등록 복합키 → Y 대응/ADD. 동일 표기 다른 대상 → 별도 행/ADD.
       - 복합키 중복 또는 이력 실패 → 대응과 이력 요청 전 상태.
       x-required-tests:
-      - 'happy: 테스트표기/JOB/BE/MAIN을 POST →204·본문0바이트; getExcelMaps 및 DB에 Y·MAIN 신규
-        행, ADD 이력 확인.'
-      - 'auth: Authorization·쿠키 없이 유효한 미등록 대응 POST →204·재조회 존재·chg_user_id NULL; 401/403
-        없음.'
-      - 'validation: 표기 빈 문자열 또는 대상 미선택 POST →400 field·엑셀 글자를 입력하세요./대응할 코드를 고르세요.;
-        메모201자도400; 행/이력 불변.'
-      - 'business: 같은 표기/JOB/BE 재등록 →409 DUPLICATE_CODE/이미 있는 대응입니다.·행수/이력 불변; 같은
-        표기/JOB/OPS(사용Y) →204·별도 행.'
-      - 'side-effect: 정상 등록 →cmn.cd_hist ADD와 NULL 처리자 확인, 기존 업무 행 불변. OQ-106 승인된
-        식별값으로 대응과 이력 연결 확인; 승인 전 임의 sentinel 사용 금지. 이력 실패 주입 →500·대응/이력 모두 불변.'
+      - 'happy: 테스트표기/JOB/BE/MAIN을 POST →204·본문0바이트; getExcelMaps 및 DB에 Y·MAIN 신규 행, ADD 이력 확인.'
+      - 'auth: Authorization·쿠키 없이 유효한 미등록 대응 POST →204·재조회 존재·chg_user_id NULL; 401/403 없음.'
+      - 'validation: 표기 빈 문자열 또는 대상 미선택 POST →400 field·엑셀 글자를 입력하세요./대응할 코드를 고르세요.; 메모201자도400; 행/이력 불변.'
+      - 'business: 같은 표기/JOB/BE 재등록 →409 DUPLICATE_CODE/이미 있는 대응입니다.·행수/이력 불변; 같은 표기/JOB/OPS(사용Y) →204·별도 행.'
+      - 'side-effect: 정상 등록 →cmn.cd_hist ADD와 NULL 처리자 확인, 기존 업무 행 불변. OQ-106 승인된 식별값으로 대응과 이력 연결 확인; 승인 전 임의 sentinel 사용 금지. 이력 실패 주입 →500·대응/이력 모두 불변.'
   /api/admin/excel-maps/{map_id}:
     patch:
       operationId: updateExcelMap
@@ -771,35 +1446,25 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/UpdateExcelMapRequest'
-      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로
-        확인하므로 data와 content를 반환하지 않는다.
+      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로 확인하므로 data와 content를 반환하지 않는다.
       x-side-effects:
       - 업무 행과 cmn.cd_hist를 같은 트랜잭션에서 커밋한다. 이력 기록 실패 시 업무 행도 전부 롤백한다.
-      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에
-        사용한다.
+      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에 사용한다.
       - 기존 업무 데이터와 다른 대응은 변경하지 않는다. 다음 업로드 소비만 새 대응을 사용하며 업로드 자체를 실행하지 않는다.
       x-business-rules:
-      - map_id로 기존 행을 찾고 map_role_cd·rmrk_desc·use_yn만 변경한다. 표기·대상 그룹·코드·map_id는 불변이며
-        금지 필드는400이다. 삭제 API 없이 사용 N을 저장한다.
-      - 변경 항목마다 cmn.cd_hist에 기록한다. 변경된 사용 상태 Y→N은 DISABLE, N→Y는 ENABLE, 나머지는 UPDATE로
-        기록한다. 기존 업무 데이터는 불변이며 대응 변경은 다음 업로드부터 적용한다. 업로드 기능은 이 범위에서 제공하지 않는다.
-      - 이력은 trns_cd_grp_id/trns_cd, item_nm=excel_map.{map_id}.{field}(ADD는excel_map.{map_id}),
-        전체 트랜잭션 원자성. 이전 업무 데이터 불변.
+      - map_id로 기존 행을 찾고 map_role_cd·rmrk_desc·use_yn만 변경한다. 표기·대상 그룹·코드·map_id는 불변이며 금지 필드는400이다. 삭제 API 없이 사용 N을 저장한다.
+      - 변경 항목마다 cmn.cd_hist에 기록한다. 변경된 사용 상태 Y→N은 DISABLE, N→Y는 ENABLE, 나머지는 UPDATE로 기록한다. 기존 업무 데이터는 불변이며 대응 변경은 다음 업로드부터 적용한다. 업로드 기능은 이 범위에서 제공하지 않는다.
+      - 이력은 trns_cd_grp_id/trns_cd, item_nm=excel_map.{map_id}.{field}(ADD는excel_map.{map_id}), 전체 트랜잭션 원자성. 이전 업무 데이터 불변.
       x-state-transitions:
       - 기존 MAIN→SUB 또는 메모 변경 → 같은 map_id·복합키 유지/항목별 UPDATE.
       - Y→N → 같은 행 유지/DISABLE; N→Y → 같은 행 유지/ENABLE.
       - 금지 식별 필드 변경 또는 이력 실패 → 대응·이력 요청 전 상태.
       x-required-tests:
-      - 'happy: 기존 map_id에 map_role_cd=SUB, rmrk_desc=수정 PATCH →204·본문0바이트; 재조회에서
-        같은 복합키·새 역할/메모.'
-      - 'auth: Authorization·쿠키 없이 기존 대응의 메모 PATCH →204·재조회 반영·이력 처리자 NULL; 401/403
-        없음.'
-      - 'validation: map_role_cd=OTHER, 메모201자 또는 excel_lbl_nm 식별 필드를 PATCH →400·해당
-        field; 대응/이력 불변.'
-      - 'business: 기존 대응 use_yn=N PATCH →204·행 유지/DISABLE; 다시Y →204·ENABLE; 미존재 map_id
-        →404. 전후 map_id·표기·대상 그룹·코드 동일.'
-      - 'side-effect: 메모·역할 변경 →항목별 UPDATE 이력·기존 업무 행 동일. OQ-106 승인 후 대응 이력 식별 검증.
-        이력 INSERT 실패 주입 →500·대응/이력 모두 스냅샷 불변; 업로드 실행·기존 데이터 재변환 없음.'
+      - 'happy: 기존 map_id에 map_role_cd=SUB, rmrk_desc=수정 PATCH →204·본문0바이트; 재조회에서 같은 복합키·새 역할/메모.'
+      - 'auth: Authorization·쿠키 없이 기존 대응의 메모 PATCH →204·재조회 반영·이력 처리자 NULL; 401/403 없음.'
+      - 'validation: map_role_cd=OTHER, 메모201자 또는 excel_lbl_nm 식별 필드를 PATCH →400·해당 field; 대응/이력 불변.'
+      - 'business: 기존 대응 use_yn=N PATCH →204·행 유지/DISABLE; 다시Y →204·ENABLE; 미존재 map_id →404. 전후 map_id·표기·대상 그룹·코드 동일.'
+      - 'side-effect: 메모·역할 변경 →항목별 UPDATE 이력·기존 업무 행 동일. OQ-106 승인 후 대응 이력 식별 검증. 이력 INSERT 실패 주입 →500·대응/이력 모두 스냅샷 불변; 업로드 실행·기존 데이터 재변환 없음.'
   /api/admin/code-history:
     get:
       operationId: getCodeHistory
@@ -894,20 +1559,15 @@ paths:
         result: data.items/total/page/size
         reason: REQ-154 원문 기본50건 페이지 줄과 공통 목록 봉투를 적용한다.
       x-business-rules:
-      - cmn.cd_hist를 선택 cd_grp_id로 필터하고 chg_at 최신순으로 페이지 조회한다. PARAM 그룹명은 기준값, NULL
-        chg_user_id 표시 이름은 기본 사용자다.
+      - cmn.cd_hist를 선택 cd_grp_id로 필터하고 chg_at 최신순으로 페이지 조회한다. PARAM 그룹명은 기준값, NULL chg_user_id 표시 이름은 기본 사용자다.
       - 이력 수정·삭제 endpoint를 제공하지 않으며 조회는 기존 이력을 변경하지 않는다.
       x-required-tests:
-      - 'happy: 무인증 getCodeHistory 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만
-        포함.'
+      - 'happy: 무인증 getCodeHistory 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getCodeHistory 조회 →200·401/403 없음.'
       - 'side-effect: getCodeHistory 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'happy: POSITION TL attr1_val200000→250000 변경 후 cd_grp_id=POSITION 조회 →첫 행
-        TL/UPDATE/attr1_val/200000/250000·chg_user_id NULL. PARAM 조회 →cd_grp_nm 기준값.'
-      - 'validation: page=0 또는 size=30 또는 sort=chg_at,asc →400 field; size 생략 →size50
-        및 최대50행, total은 필터 전체 행수.'
-      - 'business: 격리51개 이력에서 기본 첫 페이지50개와 page2 한 행 조회 →합집합51개·최신순, 읽기 전후 이력 불변·이력
-        PATCH/DELETE operation 없음.'
+      - 'happy: POSITION TL attr1_val200000→250000 변경 후 cd_grp_id=POSITION 조회 →첫 행 TL/UPDATE/attr1_val/200000/250000·chg_user_id NULL. PARAM 조회 →cd_grp_nm 기준값.'
+      - 'validation: page=0 또는 size=30 또는 sort=chg_at,asc →400 field; size 생략 →size50 및 최대50행, total은 필터 전체 행수.'
+      - 'business: 격리51개 이력에서 기본 첫 페이지50개와 page2 한 행 조회 →합집합51개·최신순, 읽기 전후 이력 불변·이력 PATCH/DELETE operation 없음.'
   /api/admin/operating-standards:
     get:
       operationId: getOperatingStandards
@@ -948,8 +1608,7 @@ paths:
                           type: string
                           nullable: true
                           pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-                          description: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증
-                            계약을 따른다.
+                          description: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증 계약을 따른다.
                   required:
                   - data
         '400':
@@ -976,18 +1635,13 @@ paths:
         paginated: false
         reason: 각 기준 키의 현재 적용값 전체 집합. 미래 적용월은 제외하되 키 목록을 절단하지 않는다.
       x-business-rules:
-      - 서버의 이번 달 이하에서 각 oprt_std_id의 최신 aply_bgn_ym 한 행만 반환한다. 미래 행을 현재값으로 내보내지 않는다.
-        표시값은 num_val 우선, 없으면 txt_val이며 unit_nm과 use_plc_desc를 함께 반환한다.
+      - 서버의 이번 달 이하에서 각 oprt_std_id의 최신 aply_bgn_ym 한 행만 반환한다. 미래 행을 현재값으로 내보내지 않는다. 표시값은 num_val 우선, 없으면 txt_val이며 unit_nm과 use_plc_desc를 함께 반환한다.
       x-required-tests:
-      - 'happy: 무인증 getOperatingStandards 유효 조회 →200 및 정의된 typed data를 ApiResponse에
-        한 번만 포함.'
+      - 'happy: 무인증 getOperatingStandards 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getOperatingStandards 조회 →200·401/403 없음.'
-      - 'side-effect: getOperatingStandards 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드
-        모두 불변.'
-      - 'business: 서버 기준월2026-10·VAT_RATE2026-11=11 fixture →data.items의 VAT_RATE10;
-        미래11은 현재 응답에서 제외.'
-      - 'business: fin.mth_cls의 마지막 CLOSED=2026-09 fixture ->200·data.last_closed_ym=2026-09이며
-        UI는2026-09 이하 선택을 막고 저장 API는409 CLOSED_MONTH; fin.mth_cls 행/상태 불변.'
+      - 'side-effect: getOperatingStandards 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
+      - 'business: 서버 기준월2026-10·VAT_RATE2026-11=11 fixture →data.items의 VAT_RATE10; 미래11은 현재 응답에서 제외.'
+      - 'business: fin.mth_cls의 마지막 CLOSED=2026-09 fixture ->200·data.last_closed_ym=2026-09이며 UI는2026-09 이하 선택을 막고 저장 API는409 CLOSED_MONTH; fin.mth_cls 행/상태 불변.'
       description: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증 계약을 따른다.
   /api/admin/operating-standards/{oprt_std_id}:
     put:
@@ -1054,40 +1708,27 @@ paths:
           application/json:
             schema:
               $ref: '#/components/schemas/SaveOperatingStandardRequest'
-      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로
-        확인하므로 data와 content를 반환하지 않는다.
+      x-no-response-data-reason: spec.md HTTP 계약의 쓰기204 선택. 생성·저장 결과는 후속 조회와 DB/이력으로 확인하므로 data와 content를 반환하지 않는다.
       x-side-effects:
       - 업무 행과 cmn.cd_hist를 같은 트랜잭션에서 커밋한다. 이력 기록 실패 시 업무 행도 전부 롤백한다.
-      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에
-        사용한다.
+      - CurrentUser.userId는 NULL이다. 요청으로 처리자 값을 받지 않고 chg_user_id와 해당 테이블의 처리자 필드에 사용한다.
       x-business-rules:
-      - 기존 oprt_std_id의 새 값과 적용월을 검증한다. 값 종류 전환은 OQ-105 미승인이다. num_val>=0, 기존 unit_nm이
-        % 또는 %p이면0~100; txt_val은1~200. 위반은400/올바른 값을 입력하세요.이며 값 필드를 지적한다.
-      - fin.mth_cls의 마지막 CLOSED 달 이하이면409 CLOSED_MONTH. 마지막 CLOSED 다음 달부터만 저장하며 마감
-        상태 자체는 변경하지 않는다.
-      - 같은 키의 oprt_std_nm·unit_nm·use_plc_desc를 복사하여 새 월 INSERT, 같은 월 존재 시 해당 행 UPDATE.
-        다른 적용월은 덮어쓰지 않는다. 잠금 없이 마지막 저장이 이기며 기존 마감월 계산 결과를 변경하지 않는다.
-      - 항목별 cmn.cd_hist는 cd_grp_id=PARAM, dtl_cd=oprt_std_id, cd_chg_ty_cd=UPDATE,
-        item_nm=요청 aply_bgn_ym으로 기록한다. 업무값과 이력은 원자 커밋한다.
-      - 기존 숫자/문자 종류 하나만 허용; 동시값/종류전환/잘못된YYYY-MM은400. CLOSED가 없으면 유효월 허용, 있으면 마지막 CLOSED
-        다음달부터.
+      - 기존 oprt_std_id의 새 값과 적용월을 검증한다. 값 종류 전환은 OQ-105 미승인이다. num_val>=0, 기존 unit_nm이 % 또는 %p이면0~100; txt_val은1~200. 위반은400/올바른 값을 입력하세요.이며 값 필드를 지적한다.
+      - fin.mth_cls의 마지막 CLOSED 달 이하이면409 CLOSED_MONTH. 마지막 CLOSED 다음 달부터만 저장하며 마감 상태 자체는 변경하지 않는다.
+      - 같은 키의 oprt_std_nm·unit_nm·use_plc_desc를 복사하여 새 월 INSERT, 같은 월 존재 시 해당 행 UPDATE. 다른 적용월은 덮어쓰지 않는다. 잠금 없이 마지막 저장이 이기며 기존 마감월 계산 결과를 변경하지 않는다.
+      - 항목별 cmn.cd_hist는 cd_grp_id=PARAM, dtl_cd=oprt_std_id, cd_chg_ty_cd=UPDATE, item_nm=요청 aply_bgn_ym으로 기록한다. 업무값과 이력은 원자 커밋한다.
+      - 기존 숫자/문자 종류 하나만 허용; 동시값/종류전환/잘못된YYYY-MM은400. CLOSED가 없으면 유효월 허용, 있으면 마지막 CLOSED 다음달부터.
       - 기존적용월 UPDATE/새적용월 INSERT; 다른월 보존·이름/단위/쓰는곳 복사. 기존 계산결과 자동재계산 없음.
       x-state-transitions:
       - 미존재 적용월 + 마감 이후 유효값 → 메타 복사 새 행/UPDATE 이력.
       - 같은 키·적용월 존재 → 해당 행만 새 값/UPDATE 이력; 이전 적용월 유지.
       - 마감월 이하·값 오류·이력 실패 → 전체 기준값과 이력 요청 전 상태.
       x-required-tests:
-      - 'happy: VAT_RATE에 aply_bgn_ym=2026-11,num_val=11 PUT →204·본문0바이트; getParam
-        month2026-10=10, month2026-11=11, 전체 이력에 두 월 존재.'
-      - 'auth: Authorization·쿠키 없이 VAT_RATE 미마감월 값 PUT →204·월별 GET 반영·이력 chg_user_id
-        NULL; 401/403 없음.'
-      - 'validation: TARGET_UTIL_RATE -1 또는101 →400 field=num_val/올바른 값을 입력하세요.·무삽입;
-        숫자0과 비율100 경계 허용. 문자형 기존 키에 빈 값·201자 →400, 1자·200자 →204. 월2026-13 →400·불변.
-        숫자/문자 동시 제출·타입 전환·CLOSED 부재는 OQ-105 승인 전 기대 결과를 고정하지 않는다.'
-      - 'business: 마지막 CLOSED=2026-09일 때 적용월2026-09 PUT →409 CLOSED_MONTH·기준값/이력 불변.
-        같은 키2026-11 재저장 →해당 행만 UPDATE·행수 그대로·메타 동일·이전월 값 불변.'
-      - 'side-effect: VAT_RATE2026-11 저장 →PARAM/VAT_RATE·UPDATE·item_nm2026-11·전후
-        값·NULL 처리자 확인. fin.mth_cls 및 마감 계산 스냅샷 불변. 이력 실패 주입 →500·기준값/이력 원자 롤백.'
+      - 'happy: VAT_RATE에 aply_bgn_ym=2026-11,num_val=11 PUT →204·본문0바이트; getParam month2026-10=10, month2026-11=11, 전체 이력에 두 월 존재.'
+      - 'auth: Authorization·쿠키 없이 VAT_RATE 미마감월 값 PUT →204·월별 GET 반영·이력 chg_user_id NULL; 401/403 없음.'
+      - 'validation: TARGET_UTIL_RATE -1 또는101 →400 field=num_val/올바른 값을 입력하세요.·무삽입; 숫자0과 비율100 경계 허용. 문자형 기존 키에 빈 값·201자 →400, 1자·200자 →204. 월2026-13 →400·불변. 숫자/문자 동시 제출·타입 전환·CLOSED 부재는 OQ-105 승인 전 기대 결과를 고정하지 않는다.'
+      - 'business: 마지막 CLOSED=2026-09일 때 적용월2026-09 PUT →409 CLOSED_MONTH·기준값/이력 불변. 같은 키2026-11 재저장 →해당 행만 UPDATE·행수 그대로·메타 동일·이전월 값 불변.'
+      - 'side-effect: VAT_RATE2026-11 저장 →PARAM/VAT_RATE·UPDATE·item_nm2026-11·전후 값·NULL 처리자 확인. fin.mth_cls 및 마감 계산 스냅샷 불변. 이력 실패 주입 →500·기준값/이력 원자 롤백.'
   /api/admin/operating-standards/{oprt_std_id}/history:
     get:
       operationId: getOperatingStandardHistory
@@ -1149,14 +1790,11 @@ paths:
         paginated: false
         reason: 원문 같은 키 전체 이력 요구. 미래 적용월까지 포함한 모든 행을 최신순으로 반환한다.
       x-business-rules:
-      - 같은 oprt_std_id의 모든 적용월을 미래월 포함 aply_bgn_ym 최신순으로 반환한다. 현재값 조회나 특정 월 이하 조회로
-        축소하지 않는다.
+      - 같은 oprt_std_id의 모든 적용월을 미래월 포함 aply_bgn_ym 최신순으로 반환한다. 현재값 조회나 특정 월 이하 조회로 축소하지 않는다.
       x-required-tests:
-      - 'happy: 무인증 getOperatingStandardHistory 유효 조회 →200 및 정의된 typed data를 ApiResponse에
-        한 번만 포함.'
+      - 'happy: 무인증 getOperatingStandardHistory 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getOperatingStandardHistory 조회 →200·401/403 없음.'
-      - 'side-effect: getOperatingStandardHistory 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사
-        필드 모두 불변.'
+      - 'side-effect: getOperatingStandardHistory 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
       - 'business: VAT_RATE에2026-11=11·이전월10 존재 시 조회 →미래 포함 모든 적용월 내림차순·월 필터 없음.'
   /api/params/{key}:
     get:
@@ -1224,14 +1862,12 @@ paths:
         paginated: false
         reason: 요청 월에 적용되는 기준값 단일 행.
       x-business-rules:
-      - month 필수 YYYY-MM. 지정 키에서 aply_bgn_ym<=month 중 최신 한 행만 반환한다. 현재 달이 아니라 요청 month를
-        기준으로 한다. 적용 행이 없으면404이며 조회로 행을 만들지 않는다.
+      - month 필수 YYYY-MM. 지정 키에서 aply_bgn_ym<=month 중 최신 한 행만 반환한다. 현재 달이 아니라 요청 month를 기준으로 한다. 적용 행이 없으면404이며 조회로 행을 만들지 않는다.
       x-required-tests:
       - 'happy: 무인증 getParam 유효 조회 →200 및 정의된 typed data를 ApiResponse에 한 번만 포함.'
       - 'auth: Authorization·쿠키 없이 getParam 조회 →200·401/403 없음.'
       - 'side-effect: getParam 전후 대상 테이블과 cmn.cd_hist 스냅샷 비교 →행·감사 필드 모두 불변.'
-      - 'business: VAT_RATE2026-11=11 저장 후 month2026-10 →10, month2026-11 →11; 최신
-        행이 없는 키/월404.'
+      - 'business: VAT_RATE2026-11=11 저장 후 month2026-10 →10, month2026-11 →11; 최신 행이 없는 키/월404.'
       - 'validation: month 누락 또는2026-13 →400 field=month; 요청월을 서버 현재월로 대체하지 않는다.'
 components:
   securitySchemes:
@@ -1240,466 +1876,6 @@ components:
       scheme: bearer
       bearerFormat: JWT
   schemas:
-    CodeGroupView:
-      type: object
-      properties:
-        cd_grp_id:
-          type: string
-          maxLength: 30
-        cd_grp_nm:
-          type: string
-          maxLength: 100
-        cd_grp_se_cd:
-          type: string
-          maxLength: 10
-          enum:
-          - SYSTEM
-          - BIZ
-        attr1_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        attr2_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        attr3_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        sort_seq:
-          type: integer
-          format: int32
-        use_yn:
-          type: string
-          maxLength: 1
-          enum:
-          - Y
-          - N
-        code_count:
-          type: integer
-          minimum: 0
-          description: use_yn 무관 해당 그룹 cmn.cd_dtl 전체 행수. 원문 그룹·제목 코드 건수의 파생값이며 DB
-            컬럼이 아니다.
-      required:
-      - cd_grp_id
-      - cd_grp_nm
-      - cd_grp_se_cd
-      - attr1_nm
-      - attr2_nm
-      - attr3_nm
-      - sort_seq
-      - use_yn
-      - code_count
-      description: cmn.cd_grp의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
-    AdminCodeView:
-      type: object
-      properties:
-        cd_grp_id:
-          type: string
-          maxLength: 30
-        dtl_cd:
-          type: string
-          maxLength: 30
-        cd_nm:
-          type: string
-          maxLength: 100
-        attr1_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        attr2_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        attr3_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        sort_seq:
-          type: integer
-          format: int32
-        use_yn:
-          type: string
-          maxLength: 1
-          enum:
-          - Y
-          - N
-        aply_bgn_dt:
-          type: string
-          nullable: true
-          format: date
-      required:
-      - cd_grp_id
-      - dtl_cd
-      - cd_nm
-      - attr1_val
-      - attr2_val
-      - attr3_val
-      - sort_seq
-      - use_yn
-      - aply_bgn_dt
-      description: cmn.cd_dtl의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
-    ExcelMapView:
-      type: object
-      properties:
-        map_id:
-          type: integer
-          format: int64
-        excel_lbl_nm:
-          type: string
-          maxLength: 100
-        trns_cd_grp_id:
-          type: string
-          maxLength: 30
-        trns_cd:
-          type: string
-          maxLength: 30
-        map_role_cd:
-          type: string
-          maxLength: 10
-          enum:
-          - MAIN
-          - SUB
-        rmrk_desc:
-          type: string
-          maxLength: 200
-          nullable: true
-        use_yn:
-          type: string
-          maxLength: 1
-          enum:
-          - Y
-          - N
-        cd_grp_nm:
-          type: string
-          maxLength: 100
-        cd_nm:
-          type: string
-          maxLength: 100
-      required:
-      - map_id
-      - excel_lbl_nm
-      - trns_cd_grp_id
-      - trns_cd
-      - map_role_cd
-      - rmrk_desc
-      - use_yn
-      - cd_grp_nm
-      - cd_nm
-      description: cmn.excel_map의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
-    OperatingStandardView:
-      type: object
-      properties:
-        oprt_std_id:
-          type: string
-          maxLength: 50
-        aply_bgn_ym:
-          type: string
-          maxLength: 7
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-        oprt_std_nm:
-          type: string
-          maxLength: 100
-        num_val:
-          type: number
-          nullable: true
-          description: 정본 DECIMAL(18,4) 값을 사용한다.
-        txt_val:
-          type: string
-          maxLength: 200
-          nullable: true
-        unit_nm:
-          type: string
-          maxLength: 20
-          nullable: true
-        use_plc_desc:
-          type: string
-          maxLength: 100
-          nullable: true
-      required:
-      - oprt_std_id
-      - aply_bgn_ym
-      - oprt_std_nm
-      - num_val
-      - txt_val
-      - unit_nm
-      - use_plc_desc
-      description: cmn.oprt_std의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
-    CodeHistoryView:
-      type: object
-      properties:
-        cd_hist_id:
-          type: integer
-          format: int64
-        cd_grp_id:
-          type: string
-          maxLength: 30
-        dtl_cd:
-          type: string
-          maxLength: 30
-          nullable: true
-        cd_chg_ty_cd:
-          type: string
-          maxLength: 10
-          enum:
-          - ADD
-          - UPDATE
-          - DISABLE
-          - ENABLE
-        item_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        bfr_val:
-          type: string
-          maxLength: 500
-          nullable: true
-        aft_val:
-          type: string
-          maxLength: 500
-          nullable: true
-        chg_user_id:
-          type: integer
-          format: int64
-          nullable: true
-        chg_at:
-          type: string
-          description: 정본 TIMESTAMP를 Asia/Seoul 지역시각으로 표시한다. UTC 변환으로 의미를 바꾸지 않는다.
-        cd_grp_nm:
-          type: string
-          maxLength: 100
-          description: 그룹명 조인. PARAM은 기준값으로 표시한다.
-      required:
-      - cd_hist_id
-      - cd_grp_id
-      - dtl_cd
-      - cd_chg_ty_cd
-      - item_nm
-      - bfr_val
-      - aft_val
-      - chg_user_id
-      - chg_at
-      - cd_grp_nm
-      description: cmn.cd_hist의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
-    CodeChoice:
-      type: object
-      properties:
-        code:
-          type: string
-          maxLength: 30
-          description: cmn.cd_dtl.dtl_cd
-        name:
-          type: string
-          maxLength: 100
-          description: cmn.cd_dtl.cd_nm
-        attr1:
-          type: string
-          maxLength: 100
-          nullable: true
-          description: cmn.cd_dtl.attr1_val
-        attr2:
-          type: string
-          maxLength: 100
-          nullable: true
-          description: cmn.cd_dtl.attr2_val
-        attr3:
-          type: string
-          maxLength: 100
-          nullable: true
-          description: cmn.cd_dtl.attr3_val
-      required:
-      - code
-      - name
-      - attr1
-      - attr2
-      - attr3
-    CreateCodeGroupRequest:
-      type: object
-      properties:
-        cd_grp_id:
-          type: string
-          maxLength: 30
-          minLength: 1
-          pattern: ^[A-Z_]{1,30}$
-        cd_grp_nm:
-          type: string
-          maxLength: 100
-          minLength: 1
-        attr1_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        attr2_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-        attr3_nm:
-          type: string
-          maxLength: 50
-          nullable: true
-      required:
-      - cd_grp_id
-      - cd_grp_nm
-      additionalProperties: false
-    SaveCodeRow:
-      type: object
-      properties:
-        dtl_cd:
-          type: string
-          maxLength: 30
-          minLength: 1
-          pattern: ^[A-Z0-9_]{1,30}$
-          description: 기존 코드의 식별자는 변경 불가. 신규 코드에만 새 값을 지정한다.
-        cd_nm:
-          type: string
-          maxLength: 100
-          minLength: 1
-        attr1_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        attr2_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        attr3_val:
-          type: string
-          maxLength: 100
-          nullable: true
-        sort_seq:
-          type: integer
-          format: int32
-          description: 신규 행의 기본값은 해당 그룹 최대 sort_seq+1. 기존 행은 조회된 순서 또는 편집 순서를 전송한다.
-        use_yn:
-          type: string
-          maxLength: 1
-          enum:
-          - Y
-          - N
-          description: 기존 BIZ 행만 사용 전환 가능. 신규 행은 Y로 INSERT. SYSTEM의 기존 값 변경은409.
-        aply_bgn_dt:
-          type: string
-          nullable: true
-          format: date
-      required:
-      - dtl_cd
-      - cd_nm
-      - sort_seq
-      - use_yn
-      additionalProperties: false
-    SaveCodesRequest:
-      type: object
-      properties:
-        codes:
-          type: array
-          items:
-            $ref: '#/components/schemas/SaveCodeRow'
-          description: 선택 그룹 전체 목록. 기존 dtl_cd가 하나라도 누락되면400; 중복 dtl_cd는409 DUPLICATE_CODE.
-            모든 행과 이력이 한 트랜잭션이다.
-      required:
-      - codes
-      additionalProperties: false
-    CreateExcelMapRequest:
-      type: object
-      properties:
-        excel_lbl_nm:
-          type: string
-          maxLength: 100
-          minLength: 1
-        trns_cd_grp_id:
-          type: string
-          maxLength: 30
-          minLength: 1
-        trns_cd:
-          type: string
-          maxLength: 30
-          minLength: 1
-        map_role_cd:
-          type: string
-          maxLength: 10
-          enum:
-          - MAIN
-          - SUB
-        rmrk_desc:
-          type: string
-          maxLength: 200
-          nullable: true
-      required:
-      - excel_lbl_nm
-      - trns_cd_grp_id
-      - trns_cd
-      - map_role_cd
-      additionalProperties: false
-    UpdateExcelMapRequest:
-      type: object
-      properties:
-        map_role_cd:
-          type: string
-          maxLength: 10
-          enum:
-          - MAIN
-          - SUB
-        rmrk_desc:
-          type: string
-          maxLength: 200
-          nullable: true
-        use_yn:
-          type: string
-          maxLength: 1
-          enum:
-          - Y
-          - N
-      additionalProperties: false
-      minProperties: 1
-    SaveOperatingStandardRequest:
-      type: object
-      properties:
-        aply_bgn_ym:
-          type: string
-          maxLength: 7
-          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-        num_val:
-          type: number
-          minimum: 0
-          description: 기존 unit_nm이 % 또는 %p이면 서버가100 초과를400으로 거부한다.
-        txt_val:
-          type: string
-          maxLength: 200
-          minLength: 1
-      required:
-      - aply_bgn_ym
-      additionalProperties: false
-      description: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증 계약을 따른다.
-      anyOf:
-      - required:
-        - num_val
-      - required:
-        - txt_val
-    CodeHistoryPage:
-      type: object
-      properties:
-        items:
-          type: array
-          items:
-            $ref: '#/components/schemas/CodeHistoryView'
-        total:
-          type: integer
-          minimum: 0
-        page:
-          type: integer
-          minimum: 1
-        size:
-          type: integer
-          enum:
-          - 20
-          - 50
-          - 100
-      required:
-      - items
-      - total
-      - page
-      - size
     ApiResponse:
       type: object
       required:
@@ -2235,6 +2411,1385 @@ components:
           type: string
           enum:
           - UP
+    PartnerListItem:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: mst.ptnr.ptnr_id
+        'no':
+          type: string
+          description: mst.ptnr.ptnr_no; C-001, C-1000
+        ptnrSeCd:
+          type: string
+          enum:
+          - CUST
+          - VEND
+          - BOTH
+        ptnrNm:
+          type: string
+          maxLength: 50
+        bizRegNo:
+          type: string
+          pattern: ^[0-9]{3}-[0-9]{2}-[0-9]{5}$
+        useYn:
+          type: string
+          enum:
+          - Y
+          - N
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        kindName:
+          type: string
+          description: PARTNER_KIND.cd_nm
+        industryName:
+          type: string
+          nullable: true
+          description: INDUSTRY.cd_nm
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+          nullable: true
+        paymentAccountSummary:
+          type: string
+          nullable: true
+          description: 은행명 …끝 4자리만; 전체 acntNo·bankCd·dpstrNm 미포함
+        ongoingProjectCount:
+          type: integer
+          minimum: 0
+        assignedDeveloperCount:
+          type: integer
+          minimum: 0
+      required:
+      - id
+      - 'no'
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - useYn
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - kindName
+      - industryName
+      - txinvEmailAddr
+      - paymentAccountSummary
+      - ongoingProjectCount
+      - assignedDeveloperCount
+      additionalProperties: false
+      description: 목록 전용 DTO. 지급 계좌 원문 필드는 허용하지 않는다. @Sensitive는 상세/입력 DTO의 bankCd·acntNo·dpstrNm 자리이며 목록 서버 투영은
+        은행명과 끝4자리뿐이다.
+    PartnerPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartnerListItem'
+        total:
+          type: integer
+          format: int64
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+          default: 1
+        size:
+          type: integer
+          enum:
+          - 20
+          - 50
+          - 100
+          default: 50
+        sort:
+          type: string
+          description: 실제 적용 sort; ptnr_nm,asc 기본
+      required:
+      - items
+      - total
+      - page
+      - size
+      - sort
+      description: 기존 DEC-005 공통 items/total/page/size 봉투; 전체 조건 집합 기준 정렬·집계 후 페이지 절단.
+    PartnerDetailCust:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: mst.ptnr.ptnr_id
+        'no':
+          type: string
+          description: mst.ptnr.ptnr_no; C-001, C-1000
+        ptnrSeCd:
+          type: string
+          enum:
+          - CUST
+        ptnrNm:
+          type: string
+          maxLength: 50
+        bizRegNo:
+          type: string
+          pattern: ^[0-9]{3}-[0-9]{2}-[0-9]{5}$
+        useYn:
+          type: string
+          enum:
+          - Y
+          - N
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        kindName:
+          type: string
+        industryName:
+          type: string
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+      required:
+      - id
+      - 'no'
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - useYn
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - kindName
+      - industryName
+      - txinvEmailAddr
+      additionalProperties: false
+      description: CUST 지급계좌 omission; 해당 지급계좌는 전체 번호. 무인증 상세에서도 @Sensitive 공통 자리를 유지하되 역할 마스킹/거부를 추가하지 않는다.
+    PartnerDetailVend:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: mst.ptnr.ptnr_id
+        'no':
+          type: string
+          description: mst.ptnr.ptnr_no; C-001, C-1000
+        ptnrSeCd:
+          type: string
+          enum:
+          - VEND
+        ptnrNm:
+          type: string
+          maxLength: 50
+        bizRegNo:
+          type: string
+          pattern: ^[0-9]{3}-[0-9]{2}-[0-9]{5}$
+        useYn:
+          type: string
+          enum:
+          - Y
+          - N
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        kindName:
+          type: string
+        industryName:
+          type: string
+          nullable: true
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bankName:
+          type: string
+          description: BANK.cd_nm
+      required:
+      - id
+      - 'no'
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - useYn
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - kindName
+      - industryName
+      - bankCd
+      - acntNo
+      - dpstrNm
+      - bankName
+      additionalProperties: false
+      description: VEND 이메일 omission; 해당 지급계좌는 전체 번호. 무인증 상세에서도 @Sensitive 공통 자리를 유지하되 역할 마스킹/거부를 추가하지 않는다.
+    PartnerDetailBoth:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: mst.ptnr.ptnr_id
+        'no':
+          type: string
+          description: mst.ptnr.ptnr_no; C-001, C-1000
+        ptnrSeCd:
+          type: string
+          enum:
+          - BOTH
+        ptnrNm:
+          type: string
+          maxLength: 50
+        bizRegNo:
+          type: string
+          pattern: ^[0-9]{3}-[0-9]{2}-[0-9]{5}$
+        useYn:
+          type: string
+          enum:
+          - Y
+          - N
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        kindName:
+          type: string
+        industryName:
+          type: string
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bankName:
+          type: string
+          description: BANK.cd_nm
+      required:
+      - id
+      - 'no'
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - useYn
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - kindName
+      - industryName
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      - bankName
+      additionalProperties: false
+      description: 해당 지급계좌는 전체 번호. 무인증 상세에서도 @Sensitive 공통 자리를 유지하되 역할 마스킹/거부를 추가하지 않는다.
+    PartnerDetail:
+      oneOf:
+      - $ref: '#/components/schemas/PartnerDetailCust'
+      - $ref: '#/components/schemas/PartnerDetailVend'
+      - $ref: '#/components/schemas/PartnerDetailBoth'
+      description: 구분별 응답 키 생략을 적용한 상세. 비해당 필드는 NULL 키가 아니라 응답에서 생략하며 저장소 값만 NULL이다.
+    PartnerCreateCust:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - CUST
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+        bankCd:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        acntNo:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        dpstrNm:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        bizRegNo:
+          type: string
+          pattern: ^([0-9]{10}|[0-9]{3}-[0-9]{2}-[0-9]{5})$
+          description: 숫자 10자리 또는 하이픈 형식; 저장 시 000-00-00000 정규화
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - txinvEmailAddr
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      - bizRegNo
+      x-ignored-input-fields:
+      - id
+      - 'no'
+      - useYn
+      description: 필수 문자열은 공백만으로 대체할 수 없다. VEND의 이메일, CUST의 지급계좌 입력은 값이 있어도 검증·저장 대상으로 삼지 않고 NULL로 정리한다. id/no/useYn/감사
+        컬럼은 서버 소유.
+    PartnerCreateVend:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - VEND
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          description: '비해당 입력: 값이 있어도 이메일 형식 검증 없이 무시하고 저장소 NULL 처리'
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bizRegNo:
+          type: string
+          pattern: ^([0-9]{10}|[0-9]{3}-[0-9]{2}-[0-9]{5})$
+          description: 숫자 10자리 또는 하이픈 형식; 저장 시 000-00-00000 정규화
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      - bizRegNo
+      x-ignored-input-fields:
+      - id
+      - 'no'
+      - useYn
+      description: 필수 문자열은 공백만으로 대체할 수 없다. VEND의 이메일, CUST의 지급계좌 입력은 값이 있어도 검증·저장 대상으로 삼지 않고 NULL로 정리한다. id/no/useYn/감사
+        컬럼은 서버 소유.
+    PartnerCreateBoth:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - BOTH
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bizRegNo:
+          type: string
+          pattern: ^([0-9]{10}|[0-9]{3}-[0-9]{2}-[0-9]{5})$
+          description: 숫자 10자리 또는 하이픈 형식; 저장 시 000-00-00000 정규화
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - bizRegNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      - bizRegNo
+      x-ignored-input-fields:
+      - id
+      - 'no'
+      - useYn
+      description: 필수 문자열은 공백만으로 대체할 수 없다. VEND의 이메일, CUST의 지급계좌 입력은 값이 있어도 검증·저장 대상으로 삼지 않고 NULL로 정리한다. id/no/useYn/감사
+        컬럼은 서버 소유.
+    PartnerCreateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/PartnerCreateCust'
+      - $ref: '#/components/schemas/PartnerCreateVend'
+      - $ref: '#/components/schemas/PartnerCreateBoth'
+      description: SPEC-REQUEST FR-010·FR-012 원문 필드·길이·구분별 필수. wire는 source column camelCase. 실제 검증 field도 이 wire
+        키를 사용하며 원문 biz_reg_no는 bizRegNo에 대응한다.
+    PartnerUpdateCust:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - CUST
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+        bankCd:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        acntNo:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        dpstrNm:
+          description: '비해당 입력: 값이 있어도 지급계좌 검증 없이 무시하고 저장소 NULL 처리'
+        bizRegNo:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+        biz_reg_no:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - txinvEmailAddr
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-ignored-input-fields:
+      - bizRegNo
+      - biz_reg_no
+      description: 허용된 업무 필드만 수정. bizRegNo/biz_reg_no 및 서버 소유 id/no/useYn/감사필드는 무시. 새 구분별 필수 검증·비해당NULL. 구분 변경 허용,
+        기존 연결 유지.
+    PartnerUpdateVend:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - VEND
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          description: '비해당 입력: 값이 있어도 이메일 형식 검증 없이 무시하고 저장소 NULL 처리'
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bizRegNo:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+        biz_reg_no:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-ignored-input-fields:
+      - bizRegNo
+      - biz_reg_no
+      description: 허용된 업무 필드만 수정. bizRegNo/biz_reg_no 및 서버 소유 id/no/useYn/감사필드는 무시. 새 구분별 필수 검증·비해당NULL. 구분 변경 허용,
+        기존 연결 유지.
+    PartnerUpdateBoth:
+      type: object
+      properties:
+        ptnrSeCd:
+          type: string
+          enum:
+          - BOTH
+        ptnrNm:
+          type: string
+          minLength: 1
+          maxLength: 50
+        ceoNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        indtyCd:
+          type: string
+          nullable: true
+        chrgNm:
+          type: string
+          maxLength: 20
+          nullable: true
+        chrgTelNo:
+          type: string
+          maxLength: 20
+          nullable: true
+        txinvEmailAddr:
+          type: string
+          format: email
+          maxLength: 100
+        bankCd:
+          type: string
+          x-sensitive: true
+        acntNo:
+          type: string
+          minLength: 8
+          maxLength: 20
+          pattern: ^[0-9-]{8,20}$
+          x-sensitive: true
+        dpstrNm:
+          type: string
+          minLength: 1
+          maxLength: 30
+          x-sensitive: true
+        bizRegNo:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+        biz_reg_no:
+          description: 입력되어도 검증/저장/감사 없이 무시하고 기존 사업자번호 유지
+      required:
+      - ptnrSeCd
+      - ptnrNm
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-input-allowlist:
+      - ptnrSeCd
+      - ptnrNm
+      - ceoNm
+      - indtyCd
+      - chrgNm
+      - chrgTelNo
+      - txinvEmailAddr
+      - bankCd
+      - acntNo
+      - dpstrNm
+      x-ignored-input-fields:
+      - bizRegNo
+      - biz_reg_no
+      description: 허용된 업무 필드만 수정. bizRegNo/biz_reg_no 및 서버 소유 id/no/useYn/감사필드는 무시. 새 구분별 필수 검증·비해당NULL. 구분 변경 허용,
+        기존 연결 유지.
+    PartnerUpdateRequest:
+      oneOf:
+      - $ref: '#/components/schemas/PartnerUpdateCust'
+      - $ref: '#/components/schemas/PartnerUpdateVend'
+      - $ref: '#/components/schemas/PartnerUpdateBoth'
+      description: SPEC-REQUEST FR-010·FR-012 원문 필드·길이·구분별 필수. wire는 source column camelCase. 실제 검증 field도 이 wire
+        키를 사용하며 원문 biz_reg_no는 bizRegNo에 대응한다.
+    PartnerHistoryItem:
+      type: object
+      properties:
+        chgAt:
+          type: string
+          format: date-time
+        dataChgTyCd:
+          type: string
+          enum:
+          - INSERT
+          - UPDATE
+          - DISABLE
+        clmnNm:
+          type: string
+          nullable: true
+        bfrVal:
+          type: string
+          nullable: true
+          description: clmnNm=acnt_no이면 NULL 또는 끝4자리만; INSERT 포함 전체 계좌 직렬화 금지
+        aftVal:
+          type: string
+          nullable: true
+          description: clmnNm=acnt_no이면 NULL 또는 끝4자리만
+        chgUserId:
+          type: integer
+          format: int64
+          nullable: true
+          description: NULL은 기본 사용자로 UI 표시
+      required:
+      - chgAt
+      - dataChgTyCd
+      - clmnNm
+      - bfrVal
+      - aftVal
+      - chgUserId
+      description: sys.data_chg_hist WHERE tbl_nm='mst.ptnr' AND obj_rec_id=id. chg_at DESC. 원본 컬럼명 값은 snake_case
+        유지.
+    PartnerAssignmentItem:
+      type: object
+      properties:
+        projectName:
+          type: string
+          description: prj.prj.prj_nm
+        developerName:
+          type: string
+          description: mst.dev.dev_nm
+        affiliationName:
+          type: string
+          description: mst.dev.vndr_ptnr_id NULL이면 자사, 아니면 참조 거래처 상호
+        jobName:
+          type: string
+          description: JOB.cd_nm
+        assignmentRate:
+          type: number
+          description: asgn.asgn.asgn_rt; 기존 원본 단위를 유지하며 새 환산 규칙을 만들지 않음
+        endDate:
+          type: string
+          format: date
+          description: asgn.asgn.end_dt
+      required:
+      - projectName
+      - developerName
+      - affiliationName
+      - jobName
+      - assignmentRate
+      - endDate
+    PartnerOption:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        'no':
+          type: string
+        name:
+          type: string
+      required:
+      - id
+      - 'no'
+      - name
+      additionalProperties: false
+    PartnerDisableRequest:
+      type: object
+      properties:
+        ids:
+          type: array
+          items:
+            type: integer
+            format: int64
+          minItems: 1
+      required:
+      - ids
+      additionalProperties: false
+    PartnerDisableExclusion:
+      type: object
+      properties:
+        id:
+          type: integer
+          format: int64
+        name:
+          type: string
+        reason:
+          type: string
+          description: 거래가 남아 제외 또는 이미 중지되어 제외; 진행 프로젝트/소속 인력 건수로 이유 구체화
+        ongoingProjectCount:
+          type: integer
+          minimum: 0
+        affiliatedDeveloperCount:
+          type: integer
+          minimum: 0
+      required:
+      - id
+      - name
+      - reason
+      - ongoingProjectCount
+      - affiliatedDeveloperCount
+      description: 진행 프로젝트 n건 / 소속 인력 n명. 소속 수는 CMN-710이며 현재 투입 인원과 다르다.
+    PartnerDisableResult:
+      type: object
+      properties:
+        disabledIds:
+          type: array
+          items:
+            type: integer
+            format: int64
+        disabledCount:
+          type: integer
+          minimum: 0
+        inUseCount:
+          type: integer
+          minimum: 0
+        alreadyDisabledCount:
+          type: integer
+          minimum: 0
+        excluded:
+          type: array
+          items:
+            $ref: '#/components/schemas/PartnerDisableExclusion'
+      required:
+      - disabledIds
+      - disabledCount
+      - inUseCount
+      - alreadyDisabledCount
+      - excluded
+      description: '고정 결과: 실제 변경ID·수와 거래잔여/이미중지 제외 수. excluded는 id/name/reason/두 집계를 포함. disabledCount=0은 사유별 UI
+        안내. 중복제거 후 단건 거래잔여409, 다건 부분/전체제외200.'
+    CodeGroupView:
+      type: object
+      properties:
+        cd_grp_id:
+          type: string
+          maxLength: 30
+        cd_grp_nm:
+          type: string
+          maxLength: 100
+        cd_grp_se_cd:
+          type: string
+          maxLength: 10
+          enum:
+          - SYSTEM
+          - BIZ
+        attr1_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        attr2_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        attr3_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        sort_seq:
+          type: integer
+          format: int32
+        use_yn:
+          type: string
+          maxLength: 1
+          enum:
+          - Y
+          - N
+        code_count:
+          type: integer
+          minimum: 0
+          description: use_yn 무관 해당 그룹 cmn.cd_dtl 전체 행수. 원문 그룹·제목 코드 건수의 파생값이며 DB 컬럼이 아니다.
+      required:
+      - cd_grp_id
+      - cd_grp_nm
+      - cd_grp_se_cd
+      - attr1_nm
+      - attr2_nm
+      - attr3_nm
+      - sort_seq
+      - use_yn
+      - code_count
+      description: cmn.cd_grp의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
+    AdminCodeView:
+      type: object
+      properties:
+        cd_grp_id:
+          type: string
+          maxLength: 30
+        dtl_cd:
+          type: string
+          maxLength: 30
+        cd_nm:
+          type: string
+          maxLength: 100
+        attr1_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        attr2_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        attr3_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        sort_seq:
+          type: integer
+          format: int32
+        use_yn:
+          type: string
+          maxLength: 1
+          enum:
+          - Y
+          - N
+        aply_bgn_dt:
+          type: string
+          nullable: true
+          format: date
+      required:
+      - cd_grp_id
+      - dtl_cd
+      - cd_nm
+      - attr1_val
+      - attr2_val
+      - attr3_val
+      - sort_seq
+      - use_yn
+      - aply_bgn_dt
+      description: cmn.cd_dtl의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
+    ExcelMapView:
+      type: object
+      properties:
+        map_id:
+          type: integer
+          format: int64
+        excel_lbl_nm:
+          type: string
+          maxLength: 100
+        trns_cd_grp_id:
+          type: string
+          maxLength: 30
+        trns_cd:
+          type: string
+          maxLength: 30
+        map_role_cd:
+          type: string
+          maxLength: 10
+          enum:
+          - MAIN
+          - SUB
+        rmrk_desc:
+          type: string
+          maxLength: 200
+          nullable: true
+        use_yn:
+          type: string
+          maxLength: 1
+          enum:
+          - Y
+          - N
+        cd_grp_nm:
+          type: string
+          maxLength: 100
+        cd_nm:
+          type: string
+          maxLength: 100
+      required:
+      - map_id
+      - excel_lbl_nm
+      - trns_cd_grp_id
+      - trns_cd
+      - map_role_cd
+      - rmrk_desc
+      - use_yn
+      - cd_grp_nm
+      - cd_nm
+      description: cmn.excel_map의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
+    OperatingStandardView:
+      type: object
+      properties:
+        oprt_std_id:
+          type: string
+          maxLength: 50
+        aply_bgn_ym:
+          type: string
+          maxLength: 7
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+        oprt_std_nm:
+          type: string
+          maxLength: 100
+        num_val:
+          type: number
+          nullable: true
+          description: 정본 DECIMAL(18,4) 값을 사용한다.
+        txt_val:
+          type: string
+          maxLength: 200
+          nullable: true
+        unit_nm:
+          type: string
+          maxLength: 20
+          nullable: true
+        use_plc_desc:
+          type: string
+          maxLength: 100
+          nullable: true
+      required:
+      - oprt_std_id
+      - aply_bgn_ym
+      - oprt_std_nm
+      - num_val
+      - txt_val
+      - unit_nm
+      - use_plc_desc
+      description: cmn.oprt_std의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
+    CodeHistoryView:
+      type: object
+      properties:
+        cd_hist_id:
+          type: integer
+          format: int64
+        cd_grp_id:
+          type: string
+          maxLength: 30
+        dtl_cd:
+          type: string
+          maxLength: 30
+          nullable: true
+        cd_chg_ty_cd:
+          type: string
+          maxLength: 10
+          enum:
+          - ADD
+          - UPDATE
+          - DISABLE
+          - ENABLE
+        item_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        bfr_val:
+          type: string
+          maxLength: 500
+          nullable: true
+        aft_val:
+          type: string
+          maxLength: 500
+          nullable: true
+        chg_user_id:
+          type: integer
+          format: int64
+          nullable: true
+        chg_at:
+          type: string
+          description: 정본 TIMESTAMP를 Asia/Seoul 지역시각으로 표시한다. UTC 변환으로 의미를 바꾸지 않는다.
+        cd_grp_nm:
+          type: string
+          maxLength: 100
+          description: 그룹명 조인. PARAM은 기준값으로 표시한다.
+      required:
+      - cd_hist_id
+      - cd_grp_id
+      - dtl_cd
+      - cd_chg_ty_cd
+      - item_nm
+      - bfr_val
+      - aft_val
+      - chg_user_id
+      - chg_at
+      - cd_grp_nm
+      description: cmn.cd_hist의 조회 투영. 정본 data-model.md 필드 표와 SPEC-REQUEST.md를 따른다.
+    CodeChoice:
+      type: object
+      properties:
+        code:
+          type: string
+          maxLength: 30
+          description: cmn.cd_dtl.dtl_cd
+        name:
+          type: string
+          maxLength: 100
+          description: cmn.cd_dtl.cd_nm
+        attr1:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: cmn.cd_dtl.attr1_val
+        attr2:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: cmn.cd_dtl.attr2_val
+        attr3:
+          type: string
+          maxLength: 100
+          nullable: true
+          description: cmn.cd_dtl.attr3_val
+      required:
+      - code
+      - name
+      - attr1
+      - attr2
+      - attr3
+    CreateCodeGroupRequest:
+      type: object
+      properties:
+        cd_grp_id:
+          type: string
+          maxLength: 30
+          minLength: 1
+          pattern: ^[A-Z_]{1,30}$
+        cd_grp_nm:
+          type: string
+          maxLength: 100
+          minLength: 1
+        attr1_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        attr2_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+        attr3_nm:
+          type: string
+          maxLength: 50
+          nullable: true
+      required:
+      - cd_grp_id
+      - cd_grp_nm
+      additionalProperties: false
+    SaveCodeRow:
+      type: object
+      properties:
+        dtl_cd:
+          type: string
+          maxLength: 30
+          minLength: 1
+          pattern: ^[A-Z0-9_]{1,30}$
+          description: 기존 코드의 식별자는 변경 불가. 신규 코드에만 새 값을 지정한다.
+        cd_nm:
+          type: string
+          maxLength: 100
+          minLength: 1
+        attr1_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        attr2_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        attr3_val:
+          type: string
+          maxLength: 100
+          nullable: true
+        sort_seq:
+          type: integer
+          format: int32
+          description: 신규 행의 기본값은 해당 그룹 최대 sort_seq+1. 기존 행은 조회된 순서 또는 편집 순서를 전송한다.
+        use_yn:
+          type: string
+          maxLength: 1
+          enum:
+          - Y
+          - N
+          description: 기존 BIZ 행만 사용 전환 가능. 신규 행은 Y로 INSERT. SYSTEM의 기존 값 변경은409.
+        aply_bgn_dt:
+          type: string
+          nullable: true
+          format: date
+      required:
+      - dtl_cd
+      - cd_nm
+      - sort_seq
+      - use_yn
+      additionalProperties: false
+    SaveCodesRequest:
+      type: object
+      properties:
+        codes:
+          type: array
+          items:
+            $ref: '#/components/schemas/SaveCodeRow'
+          description: 선택 그룹 전체 목록. 기존 dtl_cd가 하나라도 누락되면400; 중복 dtl_cd는409 DUPLICATE_CODE. 모든 행과 이력이 한 트랜잭션이다.
+      required:
+      - codes
+      additionalProperties: false
+    CreateExcelMapRequest:
+      type: object
+      properties:
+        excel_lbl_nm:
+          type: string
+          maxLength: 100
+          minLength: 1
+        trns_cd_grp_id:
+          type: string
+          maxLength: 30
+          minLength: 1
+        trns_cd:
+          type: string
+          maxLength: 30
+          minLength: 1
+        map_role_cd:
+          type: string
+          maxLength: 10
+          enum:
+          - MAIN
+          - SUB
+        rmrk_desc:
+          type: string
+          maxLength: 200
+          nullable: true
+      required:
+      - excel_lbl_nm
+      - trns_cd_grp_id
+      - trns_cd
+      - map_role_cd
+      additionalProperties: false
+    UpdateExcelMapRequest:
+      type: object
+      properties:
+        map_role_cd:
+          type: string
+          maxLength: 10
+          enum:
+          - MAIN
+          - SUB
+        rmrk_desc:
+          type: string
+          maxLength: 200
+          nullable: true
+        use_yn:
+          type: string
+          maxLength: 1
+          enum:
+          - Y
+          - N
+      additionalProperties: false
+      minProperties: 1
+    SaveOperatingStandardRequest:
+      type: object
+      properties:
+        aply_bgn_ym:
+          type: string
+          maxLength: 7
+          pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
+        num_val:
+          type: number
+          minimum: 0
+          description: 기존 unit_nm이 % 또는 %p이면 서버가100 초과를400으로 거부한다.
+        txt_val:
+          type: string
+          maxLength: 200
+          minLength: 1
+      required:
+      - aply_bgn_ym
+      additionalProperties: false
+      description: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증 계약을 따른다.
+      anyOf:
+      - required:
+        - num_val
+      - required:
+        - txt_val
+    CodeHistoryPage:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CodeHistoryView'
+        total:
+          type: integer
+          minimum: 0
+        page:
+          type: integer
+          minimum: 1
+        size:
+          type: integer
+          enum:
+          - 20
+          - 50
+          - 100
+      required:
+      - items
+      - total
+      - page
+      - size
   headers:
     RequestId:
       description: 모든 응답 문의 추적 번호. 형식·생성 규칙 미지정; REQ-054
@@ -2280,8 +3835,7 @@ components:
     Page:
       name: page
       in: query
-      description: REQ-055 일반 목록의 쪽 번호. 메뉴/월배열 적용·시작 번호·기본값·필수는 OQ-004. 생략 가능으로 승인한
-        것이 아니다.
+      description: REQ-055 일반 목록의 쪽 번호. 메뉴/월배열 적용·시작 번호·기본값·필수는 OQ-004. 생략 가능으로 승인한 것이 아니다.
       schema:
         type: integer
       x-contract-status: clarification_required
@@ -2302,16 +3856,14 @@ components:
     FromMonth:
       name: from
       in: query
-      description: 시작 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며
-        선택입력 정책 승인이 아니다.
+      description: 시작 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며 선택입력 정책 승인이 아니다.
       schema:
         $ref: '#/components/schemas/YearMonth'
       x-required-decision: clarification_required
     ToMonth:
       name: to
       in: query
-      description: 종료 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며
-        선택입력 정책 승인이 아니다.
+      description: 종료 연월 YYYY-MM. 필수 여부·생략·역전·상한은 OQ-010. required 미지정은 문법상 기본값이며 선택입력 정책 승인이 아니다.
       schema:
         $ref: '#/components/schemas/YearMonth'
       x-required-decision: clarification_required
@@ -2331,10 +3883,10 @@ components:
       schema:
         type: string
         pattern: ^[0-9]{4}-(0[1-9]|1[0-2])$
-x-security-policy: 모든 업무operation은 무인증. 기존 CurrentUser NULL·PermissionService/Can
-  항상허용과 UI-27 권한키 자리 재사용.
-x-mutation-scope: 기반GET3개와 BASIC-92 공통코드 관리13개operation. 물리삭제·로그인·업로드·권한관리·이력변경API는
-  없다.
+x-security-policy: 'REQ-002: 현재 인증 판정 없음. security=[]·securitySchemes={}는 현재 계약이며 향후 보안 정책 영구 없음 선언 아님. secured
+  operation이 없으므로 x-roles를 발명하지 않는다.'
+x-mutation-scope: 기존 BASIC-91 변이 없음 제한은 기존 경로에 보존. 이번 REQ-109..154의 /api/partners 계열 등록·수정·중지·재사용만 추가. 파일 업로드/다운로드·영업
+  파트는 계속 제외.
 x-shared-contract-reference:
   technology_stack:
     frontend:
@@ -2349,7 +3901,7 @@ x-shared-contract-reference:
     - Java 17
     - Spring Boot 3.3.x
     - Spring MVC
-    - Spring Data JPA
+    - MyBatis
     - Flyway
     - Maven
     database: PostgreSQL 16
@@ -2366,19 +3918,17 @@ x-shared-contract-reference:
     compose_file: infra/docker-compose.yml
     health_endpoint: /api/health
   execution_persistence_ssot: ../plan.md
-  handoff_status: clarification_required
+  handoff_status: ready_for_review
 x-uncovered-requirements:
 - canonical_id: REQ-001
   status: out-of-scope
   evidence: 업무 화면의 자리만 제공 — 이번 범위의 업무 화면은 앱 틀과 자리 표시만 구현하고 실제 업무 기능은 만들지 않는다.
 - canonical_id: REQ-002
   status: non-functional
-  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증
-    없이 실행한다.'
+  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증 없이 실행한다.'
 - canonical_id: REQ-003
   status: non-functional
-  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로
-    구성한다.'
+  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로 구성한다.'
 - canonical_id: REQ-004
   status: data-constraint
   evidence: 외부 스키마 원본 사용 — 코드생성 시 https://github.com/MinHeeJ/cost_calculation의 example/si_cost_schema_pg16_std.sql을
@@ -2388,25 +3938,21 @@ x-uncovered-requirements:
   evidence: 'CSS 변수 전용 토큰 — 상위 계약·후속 구현 책임: 색·간격·글자 크기는 CSS 변수로만 정의하고 사용한다.'
 - canonical_id: REQ-006
   status: non-functional
-  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF,
-    primary-bg #EFF6FF, text #111827, text-sub #4B5563, text-disabled #9CA3AF, border
-    #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg #F3F4F6을
-    사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내
-    #0369A1/#F0F9FF, 잠김 #4B5563/#F3F4F6이다.'
+  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF, primary-bg #EFF6FF, text #111827,
+    text-sub #4B5563, text-disabled #9CA3AF, border #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg
+    #F3F4F6을 사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내 #0369A1/#F0F9FF, 잠김
+    #4B5563/#F3F4F6이다.'
 - canonical_id: REQ-007
   status: non-functional
-  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지
-    않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
+  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지 않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
 - canonical_id: REQ-008
   status: non-functional
-  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600,
-    body 14/20/400, table 13/20/400(제목 행 600), label 13/18/500, caption 12/16/400이며
-    12px 미만을 금지한다.'
+  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600, body 14/20/400, table 13/20/400(제목
+    행 600), label 13/18/500, caption 12/16/400이며 12px 미만을 금지한다.'
 - canonical_id: REQ-009
   status: non-functional
-  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와
-    카드·창 8px이다. 그림자는 펼침 목록 0 2px 4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만
-    쓰고 카드·표는 1px 테두리이다.'
+  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와 카드·창 8px이다. 그림자는 펼침 목록 0 2px
+    4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만 쓰고 카드·표는 1px 테두리이다.'
 - canonical_id: REQ-010
   status: non-functional
   evidence: '단일 아이콘 공급자 — 상위 계약·후속 구현 책임: 아이콘은 lucide-react만 사용한다.'
@@ -2415,141 +3961,120 @@ x-uncovered-requirements:
   evidence: '원 단위 금액 표시 — 프론트 소유: 1320000 -> 1,320,000. 0 -> 0. 단위 테스트로 확인한다.'
 - canonical_id: REQ-012
   status: screen-only
-  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01).
-    0 -> 0. null -> –.'
+  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01). 0 -> 0. null -> –.'
 - canonical_id: REQ-013
   status: screen-only
-  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003
-    확인 필요.'
+  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003 확인 필요.'
 - canonical_id: REQ-014
   status: screen-only
-  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재
-    정책은 OQ-003 확인 필요.'
+  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재 정책은 OQ-003 확인 필요.'
 - canonical_id: REQ-015
   status: screen-only
   evidence: '숫자·표 정렬 — 프론트 소유: 숫자 셀은 우측·tabular-nums이고 날짜 셀은 가운데 정렬이다.'
 - canonical_id: REQ-016
   status: screen-only
-  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은
-    쉼표 형식이다.'
+  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은 쉼표 형식이다.'
 - canonical_id: REQ-017
   status: screen-only
-  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로
-    승인하지 않는다. 거부 표시 방식은 OQ-004.'
+  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로 승인하지 않는다. 거부 표시 방식은 OQ-004.'
 - canonical_id: REQ-018
   status: screen-only
-  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자
-    유지.'
+  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자 유지.'
 - canonical_id: REQ-019
   status: screen-only
-  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의
-    구체적 업무 기준은 이후 문서 소유.'
+  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의 구체적 업무 기준은 이후 문서 소유.'
 - canonical_id: REQ-020
   status: screen-only
-  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는
-    이번 범위에 추가하지 않는다.'
+  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는 이번 범위에 추가하지 않는다.'
 - canonical_id: REQ-021
   status: data-constraint
-  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를
-    새로 만들지 않는다.
+  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를 새로 만들지 않는다.
 - canonical_id: REQ-023
   status: screen-only
   evidence: '미저장 표시 — 프론트 소유: 미저장 입력 있음 -> 탭명 앞 ●. 미저장 입력 없음 -> ●가 없다.'
 - canonical_id: REQ-024
   status: screen-only
-  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을
-    허용한다.'
+  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을 허용한다.'
 - canonical_id: REQ-025
   status: screen-only
-  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장
-    경고가 발생하지 않는다. 브라우저 기본 문구 제약을 따른다.'
+  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장 경고가 발생하지 않는다. 브라우저 기본 문구 제약을
+    따른다.'
 - canonical_id: REQ-026
   status: screen-only
-  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로
-    추가 실행이 발생하지 않는다.'
+  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로 추가 실행이 발생하지 않는다.'
 - canonical_id: REQ-027
   status: screen-only
   evidence: '주 버튼 위치 — 프론트 소유: 같은 영역에 주 버튼이 둘 이상 없고 주 버튼은 오른쪽에 보인다.'
 - canonical_id: REQ-028
   status: screen-only
-  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근
-    화면·목록 건수도 지정 값 복원.'
+  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근 화면·목록 건수도 지정 값 복원.'
 - canonical_id: REQ-029
   status: screen-only
-  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px ->
-    숨김 메뉴(FR-002 AC-03).'
+  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px -> 숨김 메뉴(FR-002 AC-03).'
 - canonical_id: REQ-030
   status: screen-only
-  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은
-    화면은 모바일 여부만으로 제외되지 않는다.'
+  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은 화면은 모바일 여부만으로 제외되지 않는다.'
 - canonical_id: REQ-031
   status: screen-only
-  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 ->
-    /UI-16.'
+  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 -> /UI-16.'
 - canonical_id: REQ-032
   status: screen-only
   evidence: '휴대폰 터치 규격 — 프론트 소유: 375px에서 입력·버튼 높이 44px 및 본문 16px을 확인한다.'
 - canonical_id: REQ-033
   status: screen-only
-  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px ->
-    탭줄 표시.'
+  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px -> 탭줄 표시.'
 - canonical_id: REQ-034
   status: non-functional
-  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId:
-    null, name: "기본 사용자", roleIds: [1] }을 반환한다.'
+  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId: null, name: "기본 사용자", roleIds:
+    [1] }을 반환한다.'
 - canonical_id: REQ-035
   status: data-constraint
-  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며
-    지금은 NULL이다.
+  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며 지금은 NULL이다.
 - canonical_id: REQ-036
   status: screen-only
   evidence: 'NULL 처리자 표시 — 프론트 소유: 처리자 NULL -> 기본 사용자 표시. NULL을 빈 사용자명으로 표시하지 않는다.'
 - canonical_id: REQ-037
   status: non-functional
   evidence: '권한 키와 항상 허용 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 권한 키는 {화면ID}.{기능}이고 기능은 read·create·update·delete·upload·download·confirm이며
-    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와
-    <Can perm>은 지금 항상 true이다.'
+    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와 <Can perm>은
+    지금 항상 true이다.'
 - canonical_id: REQ-038
   status: non-functional
-  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는
-    권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
+  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는 권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
 - canonical_id: REQ-040
   status: non-functional
-  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를
-    둘 수 있으며 대상은 급여·단가·개인 원가·지급 계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
+  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를 둘 수 있으며 대상은 급여·단가·개인 원가·지급
+    계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
 - canonical_id: REQ-041
   status: non-functional
-  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router,
-    Zustand, lucide-react와 CSS Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
+  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router, Zustand, lucide-react와 CSS
+    Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
 - canonical_id: REQ-042
   status: non-functional
-  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring
-    MVC 동기 블로킹, Spring Data JPA, Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의
-    충돌은 OQ-001로 미해결이다.'
+  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring MVC 동기 블로킹, Spring Data JPA,
+    Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의 충돌은 OQ-001로 미해결이다.'
 - canonical_id: REQ-043
   status: non-functional
-  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api
-    프록시)·backend·db의 3개 서비스 각각에 healthcheck를 둔다.'
+  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api 프록시)·backend·db의 3개 서비스 각각에 healthcheck를
+    둔다.'
 - canonical_id: REQ-044
   status: data-constraint
-  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며
-    이름은 비인용 소문자이다.
+  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며 이름은 비인용 소문자이다.
 - canonical_id: REQ-045
   status: data-constraint
-  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7)
-    YYYY-MM, use_yn Y 또는 N을 유지한다.
+  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7) YYYY-MM, use_yn Y 또는 N을 유지한다.
 - canonical_id: REQ-046
   status: data-constraint
-  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB
-    기본값, updated_at은 앱 갱신이며 created_by·updated_by는 BIGINT로 현재 NULL이다.
+  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB 기본값, updated_at은 앱 갱신이며 created_by·updated_by는
+    BIGINT로 현재 NULL이다.
 - canonical_id: REQ-047
   status: data-constraint
-  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로
-    실행할 것을 요구한다. 엔티티는 해당 테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
+  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로 실행할 것을 요구한다. 엔티티는 해당
+    테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
 - canonical_id: REQ-048
   status: data-constraint
-  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본
-    스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA ... CASCADE 줄만 제거한다.
+  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본 스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA
+    ... CASCADE 줄만 제거한다.
 - canonical_id: REQ-049
   status: data-constraint
   evidence: V2 마감 시드 — V2__seed_month_close.sql로 fin.mth_cls 초기 데이터를 넣는다.
@@ -2558,8 +4083,7 @@ x-uncovered-requirements:
   evidence: 마이그레이션 불변성 — 이후 문서는 테이블을 새로 만들지 않고 변경 시 V3부터 추가하며 V1·V2는 수정하지 않는다.
 - canonical_id: REQ-051
   status: data-constraint
-  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성
-    범위를 혼동하지 않는다.
+  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성 범위를 혼동하지 않는다.
 - canonical_id: REQ-052
   status: data-constraint
   evidence: 기간 유형의 로컬 등록 — period_type은 DB가 아닌 src/screens/registry.ts에 둔다.
@@ -2568,33 +4092,29 @@ x-uncovered-requirements:
   evidence: '화면 경로와 기본 진입 — 프론트 소유: /UI-03 새로고침 -> 같은 화면(FR-001 AC-01). / 진입 -> /UI-16.'
 - canonical_id: REQ-056
   status: non-functional
-  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를
-    받고 { items, total, page, size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의
-    적용 차이는 OQ-002 확인 필요이다.'
+  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를 받고 { items, total, page,
+    size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의 적용 차이는 OQ-002 확인 필요이다.'
 - canonical_id: REQ-058
   status: screen-only
-  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도
-    가능하며 입력 유지. requestId를 못 받은 경우 문구는 OQ-006.'
+  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도 가능하며 입력 유지. requestId를 못 받은 경우
+    문구는 OQ-006.'
 - canonical_id: REQ-059
   status: data-constraint
-  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의
-    mbl_expsr_yn은 N이다.
+  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의 mbl_expsr_yn은
+    N이다.
 - canonical_id: REQ-060
   status: data-constraint
-  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00),
-    2026-10 OPEN이다.
+  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00), 2026-10 OPEN이다.
 - canonical_id: REQ-061
   status: data-constraint
-  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14,
-    YEAR_CUM은 UI-07·08·09·18, 나머지는 NONE이다.
+  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14, YEAR_CUM은 UI-07·08·09·18,
+    나머지는 NONE이다.
 - canonical_id: REQ-062
   status: screen-only
-  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자
-    메뉴 -> 목록 기본 건수 설정.'
+  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자 메뉴 -> 목록 기본 건수 설정.'
 - canonical_id: REQ-063
   status: screen-only
-  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과
-    함께 확인한다.'
+  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과 함께 확인한다.'
 - canonical_id: REQ-064
   status: screen-only
   evidence: '즐겨찾기 순서 변경 — 프론트 소유: 즐겨찾기 행을 다른 위치로 끌기 -> 목록 순서 변경. 새로고침 -> 변경 순서 유지.'
@@ -2603,39 +4123,34 @@ x-uncovered-requirements:
   evidence: '최근 본 화면 — 프론트 소유: 서로 다른 6개 화면 방문 -> 최근 본 목록 최대 5개. 재방문 중복 처리 세부 규칙은 OQ-004.'
 - canonical_id: REQ-066
   status: screen-only
-  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침
-    없음.'
+  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침 없음.'
 - canonical_id: REQ-067
   status: screen-only
-  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘
-    복원.'
+  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘 복원.'
 - canonical_id: REQ-068
   status: screen-only
-  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복
-    생성 없음.'
+  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복 생성 없음.'
 - canonical_id: REQ-069
   status: screen-only
-  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소
-    -> 기존 탭 집합 유지. LRU 후보·승인 순서는 OQ-004.'
+  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소 -> 기존 탭 집합 유지. LRU 후보·승인 순서는
+    OQ-004.'
 - canonical_id: REQ-070
   status: screen-only
   evidence: '화면 제목줄 — 프론트 소유: 화면 이동 -> 현재 묶음·화면명·화면 ID를 제목줄에서 확인한다.'
 - canonical_id: REQ-071
   status: screen-only
-  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적.
-    최초 진입 -> Asia/Seoul 오늘 연월. 새로고침 보존 범위는 OQ-004.'
+  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적. 최초 진입 -> Asia/Seoul 오늘 연월. 새로고침
+    보존 범위는 OQ-004.'
 - canonical_id: REQ-072
   status: screen-only
-  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 ->
-    작업중 배지(FR-001 AC-03). 전월 조정 업무는 새로 구현하지 않는다.'
+  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 -> 작업중 배지(FR-001 AC-03). 전월 조정 업무는
+    새로 구현하지 않는다.'
 - canonical_id: REQ-073
   status: screen-only
-  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를
-    만들지 않는다.'
+  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를 만들지 않는다.'
 - canonical_id: REQ-077
   status: screen-only
-  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙
-    우선.'
+  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙 우선.'
 - canonical_id: REQ-078
   status: screen-only
   evidence: '입력 부품과 폼 배치 — 프론트 소유: 1280px -> 제목 120px·2열. 375px -> 제목 위·1열.'
@@ -2644,57 +4159,51 @@ x-uncovered-requirements:
   evidence: '공통 표 — 프론트 소유: 표 내부 세로 구분선 없음. 스크롤 중 제목 행 고정·total 표시.'
 - canonical_id: REQ-080
   status: screen-only
-  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는
-    상태에 맞게 흐리다.'
+  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는 상태에 맞게 흐리다.'
 - canonical_id: REQ-081
   status: screen-only
-  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터
-    필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
+  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터 필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
 - canonical_id: REQ-082
   status: screen-only
   evidence: '탭·배지 부품 — 프론트 소유: 밑줄 탭 구성 최대 5개와 지정 상태 팔레트·구분형 테두리를 확인한다.'
 - canonical_id: REQ-083
   status: screen-only
-  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의
-    크기 적용은 OQ-004.'
+  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의 크기 적용은 OQ-004.'
 - canonical_id: REQ-084
   status: screen-only
   evidence: '토스트·잠금 띠 — 프론트 소유: 일반 토스트 -> 3초 후 사라짐. 오류 -> 토스트 대신 빨간 띠. 잠금 띠 -> 회색.'
 - canonical_id: REQ-085
   status: screen-only
-  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속
-    문서 확인.'
+  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속 문서 확인.'
 - canonical_id: REQ-086
   status: non-functional
-  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드
-    화면 문서에서 처음 사용한다.'
+  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드 화면 문서에서 처음 사용한다.'
 - canonical_id: REQ-087
   status: out-of-scope
   evidence: 별도 견본 화면 제외 — 공통 부품만을 위한 별도 견본 화면은 만들지 않는다.
 - canonical_id: REQ-088
   status: non-functional
-  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend
-    Java 17 + Spring Boot, Database PostgreSQL, Infrastructure Docker Compose를 고정한다.'
+  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend Java 17 + Spring Boot, Database
+    PostgreSQL, Infrastructure Docker Compose를 고정한다.'
 - canonical_id: REQ-089
   status: non-functional
-  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와
-    파생 projection이고 독립 SSOT가 아니다. 이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
+  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와 파생 projection이고 독립 SSOT가 아니다.
+    이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
 - canonical_id: REQ-090
   status: non-functional
-  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x,
-    react 18.x, postgres 16.x를 유지한다.'
+  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x, react 18.x, postgres 16.x를 유지한다.'
 - canonical_id: REQ-091
   status: non-functional
-  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend,
-    compose_file=infra/docker-compose.yml, health_endpoint=/api/health를 유지한다.'
+  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend, compose_file=infra/docker-compose.yml,
+    health_endpoint=/api/health를 유지한다.'
 - canonical_id: REQ-092
   status: screen-only
-  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용
-    규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을 자동 승인하지 않는다.'
+  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용 규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을
+    자동 승인하지 않는다.'
 - canonical_id: REQ-093
   status: non-functional
-  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를
-    쓰고 후속 plan.md·tasks.md·ui-design.md는 원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
+  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를 쓰고 후속 plan.md·tasks.md·ui-design.md는
+    원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
 - canonical_id: REQ-094
   status: non-functional
   evidence: '신규 구현의 backend 필수 — 상위 계약·후속 구현 책임: backend/ 변경이 없는 신규생성 구현은 불완전하다.'
@@ -2706,135 +4215,112 @@ x-uncovered-requirements:
   evidence: 'DB 기준 필수 — 상위 계약·후속 구현 책임: 신규생성 구현에는 DB 스키마 또는 migration 기준이 있어야 한다.'
 - canonical_id: REQ-097
   status: data-constraint
-  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께
-    확인한다.
+  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께 확인한다.
 - canonical_id: REQ-098
   status: non-functional
-  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를
-    두고 node_modules, .git, dist, build, .next, coverage를 제외한다.'
+  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를 두고 node_modules,
+    .git, dist, build, .next, coverage를 제외한다.'
 - canonical_id: REQ-099
   status: screen-only
-  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가
-    가능. 초과 시 안내 문구는 OQ-004.'
+  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가 가능. 초과 시 안내 문구는 OQ-004.'
 - canonical_id: REQ-100
   status: screen-only
-  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의
-    열린 탭 재선택도 상태를 초기화하지 않는다.'
+  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의 열린 탭 재선택도 상태를 초기화하지 않는다.'
 - canonical_id: REQ-101
   status: screen-only
-  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지
-    않는다. LRU의 후보 결정 세부는 OQ-004.'
+  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지 않는다. LRU의 후보 결정 세부는 OQ-004.'
 - canonical_id: REQ-102
   status: screen-only
-  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로
-    돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
-- canonical_id: REQ-104
+  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로 돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
+- canonical_id: REQ-103
   status: non-functional
-  owner: architecture.md
-  evidence: 무인증 전체 사용 — 무인증 필터·CurrentUser 통합 시험으로 Authorization 없는 전체 사용을 검증한다. 개별
-    신규 자원이 아니다.
+  evidence: 전 operation security=[] 및 무인증 시험으로 제약. 독립 인증/권한 endpoint가 아님.
+  reason: 전 operation security=[] 및 무인증 시험으로 제약. 독립 인증/권한 endpoint가 아님.
+- canonical_id: REQ-104
+  status: out-of-scope
+  evidence: 영업 파트·엑셀 업로드/양식/다운로드는 명시 제외. 신규 endpoint 없음.
+  reason: 영업 파트·엑셀 업로드/양식/다운로드는 명시 제외. 신규 endpoint 없음.
 - canonical_id: REQ-105
   status: out-of-scope
-  owner: architecture.md
-  evidence: 제외 기능 — 추가 endpoint 재고 검사로 로그인·권한·접근기록·업로드의 부재를 증명한다. 제외 기능을 API로 만들지
-    않는다.
+  evidence: 열 설정·좁게 보기·카드 표는 표시 기능 명시 제외. 서버 endpoint 없음.
+  reason: 열 설정·좁게 보기·카드 표는 표시 기능 명시 제외. 서버 endpoint 없음.
 - canonical_id: REQ-106
   status: data-constraint
-  owner: data-model.md
-  evidence: 기존 물리 구조 재사용 — 물리 재고 및 V1/V2 해시 대조 책임이다. 테이블·컬럼 생성용 endpoint는 없다.
+  evidence: 'data-model.md 소유: 기존 V1 mst.ptnr·감사 테이블 재사용·V1/V2/테이블 재고 보존. HTTP 스키마 생성 API가 아님.'
+  reason: 'data-model.md 소유: 기존 V1 mst.ptnr·감사 테이블 재사용·V1/V2/테이블 재고 보존. HTTP 스키마 생성 API가 아님.'
 - canonical_id: REQ-107
   status: non-functional
-  owner: BASIC-92 최종 변경 인계의 MyBatis·대응 이력·값 종류·월 검증 계약을 따른다.
-  evidence: 영속 매핑 방식 충돌 — MyBatis와 @Table 충돌의 검토자 승인은 영속 구현만 제한한다. typed API 설계는 진행하며
-    임의 JPA 전환을 하지 않는다.
+  evidence: 'MyBatis 유지: 이전 세션의 명시적 사용자 선택과 backend/pom.xml의 실제 MyBatis starter를 따른다. schema.table을 명시한 Mapper SQL을
+    사용하며 JPA/@Table/ddl-auto를 추가하지 않는다. 원문 문장은 출처로 보존한다(REQ-107).'
+  reason: 'DEC-PTNR-001: MyBatis 유지: 이전 세션의 명시적 사용자 선택과 backend/pom.xml의 실제 MyBatis starter를 따른다. schema.table을
+    명시한 Mapper SQL을 사용하며 JPA/@Table/ddl-auto를 추가하지 않는다. 원문 문장은 출처로 보존한다(REQ-107).'
 - canonical_id: REQ-108
   status: non-functional
-  owner: architecture.md
-  evidence: 기반 재사용·회귀 보존 — 기존 앱 shell·공통 모듈·메뉴·마감 회귀 시험의 소유이며 재사용을 위한 별도 HTTP 자원을
-    만들지 않는다.
-- canonical_id: REQ-109
-  status: screen-only
-  owner: ui-design.md
-  evidence: 기존 CSS와 레퍼런스 — 기존 CSS/ref.html 시각 대조의 책임이며 디자인 복제 HTTP API가 아니다.
-- canonical_id: REQ-110
-  status: screen-only
-  owner: ui-design.md 액션 매핑
-  evidence: 권한 연결 키 — read/create/update/delete 권한 키 전달과 항상 허용을 UI 시험으로 검증한다. 키를 실제
-    인증·역할 차단으로 승격하지 않는다.
+  evidence: 'architecture.md/ui-design.md 소유: shell·공통 부품·기존 합격 기준·useCodes external binding 재사용. 코드 조회 endpoint를
+    신규 발명하지 않음.'
+  reason: 'architecture.md/ui-design.md 소유: shell·공통 부품·기존 합격 기준·useCodes external binding 재사용. 코드 조회 endpoint를
+    신규 발명하지 않음.'
 - canonical_id: REQ-120
-  status: screen-only
-  owner: ui-design.md CMN-402
-  evidence: 미저장 이탈 보호 — 미저장 상태에서 그룹·탭·화면 이동 취소 시 입력·주소 유지 시험이다. 저장 전 로컬 보호라 별도 API가
-    없다.
-- canonical_id: REQ-121
-  status: screen-only
-  owner: ui-design.md 기기 상태
-  evidence: PC 전용 — UI-27 mbl_expsr_yn=N 메뉴 제외·직접주소 PC 안내의 브라우저 시험이며 서버 권한403을 만들지
-    않는다.
+  status: non-functional
+  evidence: 'architecture.md 소유: 각 operation x-permission-key의 UI-15 read/create/update/delete 연결 자리. can=true이며
+    권한 관리 API/역할 거부 없음.'
+  reason: 'architecture.md 소유: 각 operation x-permission-key의 UI-15 read/create/update/delete 연결 자리. can=true이며 권한
+    관리 API/역할 거부 없음.'
 - canonical_id: REQ-122
   status: screen-only
-  owner: ui-design.md 빈 상태
-  evidence: 빈 결과 문구 — 각 조회 data 빈 결과에서 조건에 맞는 결과가 없습니다 문구를 확인한다. 표시 문구 endpoint는 없다.
-- canonical_id: REQ-123
-  status: data-constraint
-  owner: data-model.md cmn.cd_grp
-  evidence: cmn.cd_grp 필드 계약 — 그룹 필드 길이·enum·기존 물리 구조 불변 대조의 소유다. 독립 필드 관리 API를 만들지
-    않는다.
-- canonical_id: REQ-124
-  status: data-constraint
-  owner: data-model.md cmn.cd_dtl
-  evidence: cmn.cd_dtl 필드 계약 — 코드 복합키·DATE·감사 필드와 실제 NULL 조건 대조의 소유다. 컬럼 변경 API가 아니다.
-- canonical_id: REQ-125
-  status: data-constraint
-  owner: data-model.md cmn.excel_map
-  evidence: cmn.excel_map 필드 계약 — 대응 identity·세 필드 유일성·기존 FK 검증 소유다. 물리 제약 변경 endpoint는
-    없다.
-- canonical_id: REQ-126
-  status: data-constraint
-  owner: data-model.md cmn.oprt_std
-  evidence: cmn.oprt_std 필드 계약 — 기준값 복합키·DECIMAL(18,4)·문자 길이 보존 검증의 소유다. 스키마 관리 API가
-    아니다.
+  evidence: 'ui-design.md 소유: 767px 이하 변경 CTA 숨김·가로 스크롤. API 단말/권한 거부로 전환하지 않음.'
+  reason: 'ui-design.md 소유: 767px 이하 변경 CTA 숨김·가로 스크롤. API 단말/권한 거부로 전환하지 않음.'
 - canonical_id: REQ-127
   status: data-constraint
-  owner: data-model.md cmn.cd_hist
-  evidence: cmn.cd_hist 필드 계약 — 불변 이력의 실제 필드·길이·NULL·시각 계약 대조의 소유다. 이력 구조 변경 API는
-    없다.
+  evidence: 'data-model.md/quickstart.md 소유: V3__seed_bank.sql BANK10종·sort_seq 검증. 코드 생성/조회 API를 신규 추가하지 않음.'
+  reason: 'data-model.md/quickstart.md 소유: V3__seed_bank.sql BANK10종·sort_seq 검증. 코드 생성/조회 API를 신규 추가하지 않음.'
 - canonical_id: REQ-128
   status: data-constraint
-  owner: data-model.md fin.mth_cls
-  evidence: fin.mth_cls 필드 계약 — 마지막 CLOSED 읽기와 기존 마감행 불변 검증의 소유다. 마감 상태 변경 API는 추가하지
-    않는다.
-- canonical_id: REQ-130
-  status: data-constraint
-  owner: quickstart.md fixture 사전 점검
-  evidence: 추가 시드 금지·기존 fixture — V1/V2 JOB12·TL200000·VAT_RATE10·CLOSED/OPEN 확인과
-    격리 후 복원 책임이다. seed 작성 API를 만들지 않는다.
-- canonical_id: REQ-131
+  evidence: 'data-model.md/quickstart.md 소유: 거래처 운영 seed 없음·API fixture와 프로젝트/개발자/투입 테스트SQL 분리. fixture endpoint
+    아님.'
+  reason: 'data-model.md/quickstart.md 소유: 거래처 운영 seed 없음·API fixture와 프로젝트/개발자/투입 테스트SQL 분리. fixture endpoint 아님.'
+- canonical_id: REQ-129
+  status: non-functional
+  evidence: 'quickstart.md 소유: V3 기동·기존/거래처 합격 기준 실제 시험. 완료상태 endpoint 아님.'
+  reason: 'quickstart.md 소유: V3 기동·기존/거래처 합격 기준 실제 시험. 완료상태 endpoint 아님.'
+- canonical_id: REQ-133
   status: screen-only
-  owner: ui-design.md SCR-COMMON-CODE
-  evidence: 하위 탭 구성 — 네 하위 탭의 독립 표시·전환과 미저장 보호를 브라우저로 확인한다. 탭 전환 자체는 HTTP 명령이 아니다.
-- canonical_id: REQ-141
+  evidence: 'ui-design.md 소유: 행은 상세·0초과 건수는 투입 탭으로 진입·0링크 없음. 기존 getPartner/getPartnerAssignments 소비이며 별도 조회 action
+    wire 아님.'
+  reason: 'ui-design.md 소유: 행은 상세·0초과 건수는 투입 탭으로 진입·0링크 없음. 기존 getPartner/getPartnerAssignments 소비이며 별도 조회 action
+    wire 아님.'
+- canonical_id: REQ-136
   status: screen-only
-  owner: ui-design.md 저장/취소 상태
-  evidence: 저장 피드백·취소 — 204 후 성공 문구와 GET 갱신, 취소 시 스냅샷 복원·dirty 해제를 검증한다. 로컬 취소 API를
-    만들지 않는다.
+  evidence: 'ui-design.md 소유: 같은 탭 등록폼·취소·저장 표시. 취소는 HTTP 호출 없이 목록 복귀.'
+  reason: 'ui-design.md 소유: 같은 탭 등록폼·취소·저장 표시. 취소는 HTTP 호출 없이 목록 복귀.'
+- canonical_id: REQ-139
+  status: screen-only
+  evidence: 'ui-design.md 소유: field 오류 표시·첫 오류 focus·입력 유지·CMN-402 이탈 확인. 별도 오류/취소 API 없음.'
+  reason: 'ui-design.md 소유: field 오류 표시·첫 오류 focus·입력 유지·CMN-402 이탈 확인. 별도 오류/취소 API 없음.'
+- canonical_id: REQ-143
+  status: screen-only
+  evidence: 'DEC-PTNR-002: 사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+    연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143, REQ-144).'
+  reason: 'DEC-PTNR-002: 사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+    연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143, REQ-144).'
+- canonical_id: REQ-146
+  status: screen-only
+  evidence: 'ui-design.md 소유: 기존 계좌 변경 확인/취소·입력 유지. 취소 시 PUT 없음, 첫계좌 확인 없음. 서버 확인 token/API를 발명하지 않음.'
+  reason: 'ui-design.md 소유: 기존 계좌 변경 확인/취소·입력 유지. 취소 시 PUT 없음, 첫계좌 확인 없음. 서버 확인 token/API를 발명하지 않음.'
 - canonical_id: REQ-148
   status: screen-only
-  owner: ui-design.md 코드 행 작업
-  evidence: 물리 삭제 UI 금지 — 삭제 버튼 부재와 서버 DELETE 경로 부재를 검사한다. 금지된 삭제를 새 endpoint로 노출하지
-    않는다.
+  evidence: 'ui-design.md 소유: 체크·쪽전체 선택·더보기·중지 확인창. 취소는 호출 없음; 확인 후 disablePartners 소비.'
+  reason: 'ui-design.md 소유: 체크·쪽전체 선택·더보기·중지 확인창. 취소는 호출 없음; 확인 후 disablePartners 소비.'
 x-requirement-accounting:
 - canonical_id: REQ-001
   status: out-of-scope
   evidence: 업무 화면의 자리만 제공 — 이번 범위의 업무 화면은 앱 틀과 자리 표시만 구현하고 실제 업무 기능은 만들지 않는다.
 - canonical_id: REQ-002
   status: non-functional
-  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증
-    없이 실행한다.'
+  evidence: '인증 없는 화면 접근 — 상위 계약·후속 구현 책임: 로그인·권한 판정 없이 누구나 모든 화면에 접근하며 모든 테스트를 인증 없이 실행한다.'
 - canonical_id: REQ-003
   status: non-functional
-  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로
-    구성한다.'
+  evidence: '신규 저장소 구조 — 상위 계약·후속 구현 책임: 신규 저장소는 frontend, backend, infra/docker-compose.yml로 구성한다.'
 - canonical_id: REQ-004
   status: data-constraint
   evidence: 외부 스키마 원본 사용 — 코드생성 시 https://github.com/MinHeeJ/cost_calculation의 example/si_cost_schema_pg16_std.sql을
@@ -2844,25 +4330,21 @@ x-requirement-accounting:
   evidence: 'CSS 변수 전용 토큰 — 상위 계약·후속 구현 책임: 색·간격·글자 크기는 CSS 변수로만 정의하고 사용한다.'
 - canonical_id: REQ-006
   status: non-functional
-  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF,
-    primary-bg #EFF6FF, text #111827, text-sub #4B5563, text-disabled #9CA3AF, border
-    #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg #F3F4F6을
-    사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내
-    #0369A1/#F0F9FF, 잠김 #4B5563/#F3F4F6이다.'
+  evidence: '색상 토큰과 상태 팔레트 — 상위 계약·후속 구현 책임: primary #1D4ED8, primary-hover #1E40AF, primary-bg #EFF6FF, text #111827,
+    text-sub #4B5563, text-disabled #9CA3AF, border #D1D5DB, divider #E5E7EB, bg #F9FAFB, surface #FFFFFF, header-bg·readonly-bg
+    #F3F4F6을 사용한다. 상태 글자/바탕은 성공 #15803D/#F0FDF4, 경고 #B45309/#FFFBEB, 위험 #B91C1C/#FEF2F2, 안내 #0369A1/#F0F9FF, 잠김
+    #4B5563/#F3F4F6이다.'
 - canonical_id: REQ-007
   status: non-functional
-  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지
-    않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
+  evidence: '로컬 글꼴 제공 — 상위 계약·후속 구현 책임: frontend가 Pretendard를 직접 제공하며 외부 CDN을 사용하지 않는다. 대체 글꼴은 Malgun Gothic, sans-serif이다.'
 - canonical_id: REQ-008
   status: non-functional
-  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600,
-    body 14/20/400, table 13/20/400(제목 행 600), label 13/18/500, caption 12/16/400이며
-    12px 미만을 금지한다.'
+  evidence: '글자 토큰 — 상위 계약·후속 구현 책임: 크기/줄높이/굵기는 title 20/28/700, section 16/24/600, body 14/20/400, table 13/20/400(제목
+    행 600), label 13/18/500, caption 12/16/400이며 12px 미만을 금지한다.'
 - canonical_id: REQ-009
   status: non-functional
-  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와
-    카드·창 8px이다. 그림자는 펼침 목록 0 2px 4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만
-    쓰고 카드·표는 1px 테두리이다.'
+  evidence: '간격·테두리·그림자 — 상위 계약·후속 구현 책임: 간격은 4·8·12·16·24·32px, 모서리는 버튼·입력·배지 4px와 카드·창 8px이다. 그림자는 펼침 목록 0 2px
+    4px rgba(0,0,0,.08), 창·토스트 0 8px 24px rgba(0,0,0,.16)에만 쓰고 카드·표는 1px 테두리이다.'
 - canonical_id: REQ-010
   status: non-functional
   evidence: '단일 아이콘 공급자 — 상위 계약·후속 구현 책임: 아이콘은 lucide-react만 사용한다.'
@@ -2871,43 +4353,34 @@ x-requirement-accounting:
   evidence: '원 단위 금액 표시 — 프론트 소유: 1320000 -> 1,320,000. 0 -> 0. 단위 테스트로 확인한다.'
 - canonical_id: REQ-012
   status: screen-only
-  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01).
-    0 -> 0. null -> –.'
+  evidence: '음수·0·값 없음 표시 — 프론트 소유: -1320000 -> −1,320,000 및 위험 색 클래스(FR-002 AC-01). 0 -> 0. null -> –.'
 - canonical_id: REQ-013
   status: screen-only
-  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003
-    확인 필요.'
+  evidence: '비율 표시 — 프론트 소유: 결과 문자열은 소수 첫째 자리와 %를 포함한다. 입력 비율의 단위와 반올림 방식은 OQ-003 확인 필요.'
 - canonical_id: REQ-014
   status: screen-only
-  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재
-    정책은 OQ-003 확인 필요.'
+  evidence: '서울 기준 날짜 표시 — 프론트 소유: 같은 시각을 서울 기준으로 변환하고 지정 패턴으로 출력한다. 입력 시각의 zone 부재 정책은 OQ-003 확인 필요.'
 - canonical_id: REQ-015
   status: screen-only
   evidence: '숫자·표 정렬 — 프론트 소유: 숫자 셀은 우측·tabular-nums이고 날짜 셀은 가운데 정렬이다.'
 - canonical_id: REQ-016
   status: screen-only
-  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은
-    쉼표 형식이다.'
+  evidence: '금액 입력 정규화 — 프론트 소유: 1,500,000원 붙여넣기 -> 내부 값 1500000(FR-002 AC-02). 표시값은 쉼표 형식이다.'
 - canonical_id: REQ-017
   status: screen-only
-  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로
-    승인하지 않는다. 거부 표시 방식은 OQ-004.'
+  evidence: '금액 입력 범위 제한 — 프론트 소유: 0과 999999999999는 허용한다. -1과 1000000000000은 유효 금액으로 승인하지 않는다. 거부 표시 방식은 OQ-004.'
 - canonical_id: REQ-018
   status: screen-only
-  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자
-    유지.'
+  evidence: '글자 수 제한 — 프론트 소유: 최대 50으로 구성한 부품에서 50자 입력 -> 50/50. 51번째 글자 -> 값은 50자 유지.'
 - canonical_id: REQ-019
   status: screen-only
-  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의
-    구체적 업무 기준은 이후 문서 소유.'
+  evidence: '필수 표시와 이탈 검증 — 프론트 소유: 필수 입력이 유효하지 않은 채 blur -> 빨간 테두리와 오류 문구. 유효 입력의 구체적 업무 기준은 이후 문서 소유.'
 - canonical_id: REQ-020
   status: screen-only
-  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는
-    이번 범위에 추가하지 않는다.'
+  evidence: '저장 시 첫 오류로 이동 — 프론트 소유: 오류 칸이 여러 개일 때 저장 -> 첫 오류 칸에 focus. 실제 업무 저장 API는 이번 범위에 추가하지 않는다.'
 - canonical_id: REQ-021
   status: data-constraint
-  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를
-    새로 만들지 않는다.
+  evidence: 논리 삭제 계약 — 삭제 기능은 물리 삭제하지 않고 use_yn을 N으로 바꾼다. 이번에는 계약을 마련하며 업무 삭제 API를 새로 만들지 않는다.
 - canonical_id: REQ-022
   status: covered
   evidence: getMonthClose
@@ -2916,102 +4389,90 @@ x-requirement-accounting:
   evidence: '미저장 표시 — 프론트 소유: 미저장 입력 있음 -> 탭명 앞 ●. 미저장 입력 없음 -> ●가 없다.'
 - canonical_id: REQ-024
   status: screen-only
-  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을
-    허용한다.'
+  evidence: '탭 이동·닫기 이탈 확인 — 프론트 소유: 계속 작성 -> 현재 탭과 입력 유지. 나가기 -> 이탈하고 미저장 내용 소실을 허용한다.'
 - canonical_id: REQ-025
   status: screen-only
-  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장
-    경고가 발생하지 않는다. 브라우저 기본 문구 제약을 따른다.'
+  evidence: '브라우저 이탈 보호 — 프론트 소유: dirty 상태 새로고침 -> 브라우저 이탈 경고 대상. dirty 상태가 아니면 미저장 경고가 발생하지 않는다. 브라우저 기본 문구 제약을
+    따른다.'
 - canonical_id: REQ-026
   status: screen-only
-  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로
-    추가 실행이 발생하지 않는다.'
+  evidence: '처리 중 중복 클릭 방지 — 프론트 소유: 처리 중 -> 스피너 및 disabled. 완료 -> 재사용 가능하며 처리 중 재클릭으로 추가 실행이 발생하지 않는다.'
 - canonical_id: REQ-027
   status: screen-only
   evidence: '주 버튼 위치 — 프론트 소유: 같은 영역에 주 버튼이 둘 이상 없고 주 버튼은 오른쪽에 보인다.'
 - canonical_id: REQ-028
   status: screen-only
-  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근
-    화면·목록 건수도 지정 값 복원.'
+  evidence: '사용자 설정 로컬 보관 — 프론트 소유: 값 변경 후 새로고침 -> 즐겨찾기·메뉴 접힘 복원(FR-001 AC-04). 최근 화면·목록 건수도 지정 값 복원.'
 - canonical_id: REQ-029
   status: screen-only
-  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px ->
-    숨김 메뉴(FR-002 AC-03).'
+  evidence: '기기별 기본 레이아웃 — 프론트 소유: 1280px -> 240px 메뉴. 1024px -> 64px 메뉴. 375px -> 숨김 메뉴(FR-002 AC-03).'
 - canonical_id: REQ-030
   status: screen-only
-  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은
-    화면은 모바일 여부만으로 제외되지 않는다.'
+  evidence: '휴대폰 메뉴 제외 — 프론트 소유: 375px 메뉴 -> UI-14가 없다(FR-001 AC-05). PC 메뉴 -> 같은 화면은 모바일 여부만으로 제외되지 않는다.'
 - canonical_id: REQ-031
   status: screen-only
-  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 ->
-    /UI-16.'
+  evidence: '휴대폰 직접 주소 차단 안내 — 프론트 소유: 375px에서 /UI-14 -> PC 안내·대시보드로만 보임. 버튼 클릭 -> /UI-16.'
 - canonical_id: REQ-032
   status: screen-only
   evidence: '휴대폰 터치 규격 — 프론트 소유: 375px에서 입력·버튼 높이 44px 및 본문 16px을 확인한다.'
 - canonical_id: REQ-033
   status: screen-only
-  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px ->
-    탭줄 표시.'
+  evidence: '최소 폭·탭줄 노출 — 프론트 소유: 360px -> 문서 가로 넘침 없음. 1024px -> 탭줄 숨김. 1280px -> 탭줄 표시.'
 - canonical_id: REQ-034
   status: non-functional
-  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId:
-    null, name: "기본 사용자", roleIds: [1] }을 반환한다.'
+  evidence: '고정 CurrentUser — 공통 코드 책임; 독립 HTTP 자원 없음: 백엔드 CurrentUser는 { userId: null, name: "기본 사용자", roleIds:
+    [1] }을 반환한다.'
 - canonical_id: REQ-035
   status: data-constraint
-  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며
-    지금은 NULL이다.
+  evidence: 처리자 NULL 기록 — created_by·updated_by 등 처리자 컬럼에는 CurrentUser.userId를 넣으며 지금은 NULL이다.
 - canonical_id: REQ-036
   status: screen-only
   evidence: 'NULL 처리자 표시 — 프론트 소유: 처리자 NULL -> 기본 사용자 표시. NULL을 빈 사용자명으로 표시하지 않는다.'
 - canonical_id: REQ-037
   status: non-functional
   evidence: '권한 키와 항상 허용 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 권한 키는 {화면ID}.{기능}이고 기능은 read·create·update·delete·upload·download·confirm이며
-    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와
-    <Can perm>은 지금 항상 true이다.'
+    sys.role_menu_auth의 inq·reg·mdfcn·del·upld·dwnld·cnfrm_auth_yn과 대응한다. PermissionService.can(key)와 <Can perm>은
+    지금 항상 true이다.'
 - canonical_id: REQ-038
   status: non-functional
-  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는
-    권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
+  evidence: '후속 버튼·저장 API 권한 키 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 이후 문서에서 정의하는 버튼·저장 API는 권한 키를 붙일 수 있도록 공통 구조를 제공한다.'
 - canonical_id: REQ-039
   status: covered
   evidence: getMenus
 - canonical_id: REQ-040
   status: non-functional
-  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를
-    둘 수 있으며 대상은 급여·단가·개인 원가·지급 계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
+  evidence: '민감 필드 표시 자리 — 공통 코드 책임; 독립 HTTP 자원 없음: 표 열 sensitive 속성과 DTO 필드 @Sensitive를 둘 수 있으며 대상은 급여·단가·개인 원가·지급
+    계좌이고 기준은 sys.role.snstv_inq_yn이다. 지금은 모두 보인다.'
 - canonical_id: REQ-041
   status: non-functional
-  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router,
-    Zustand, lucide-react와 CSS Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
+  evidence: 'Frontend 구성 — 상위 계약·후속 구현 책임: React 18, TypeScript, Vite 5, React Router, Zustand, lucide-react와 CSS
+    Modules를 사용하고 UI 라이브러리는 쓰지 않는다.'
 - canonical_id: REQ-042
   status: non-functional
-  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring
-    MVC 동기 블로킹, Spring Data JPA, Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의
-    충돌은 OQ-001로 미해결이다.'
+  evidence: 'Backend 동기 JPA 본문 요구 — 상위 계약·후속 구현 책임: Java 17, Spring Boot 3.3.x, Spring MVC 동기 블로킹, Spring Data JPA,
+    Flyway, Maven을 요구하고 WebFlux는 쓰지 않는다. MyBatis seed와의 충돌은 OQ-001로 미해결이다.'
 - canonical_id: REQ-043
   status: non-functional
-  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api
-    프록시)·backend·db의 3개 서비스 각각에 healthcheck를 둔다.'
+  evidence: 'DB와 3개 서비스 — 상위 계약·후속 구현 책임: PostgreSQL 16을 사용하며 frontend(nginx, /api 프록시)·backend·db의 3개 서비스 각각에 healthcheck를
+    둔다.'
 - canonical_id: REQ-044
   status: data-constraint
-  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며
-    이름은 비인용 소문자이다.
+  evidence: 11개 스키마와 이름 — 업무 영역은 cmn·sys·mst·bsn·prj·asgn·hr·cst·bill·fin·ai 스키마이며 이름은 비인용 소문자이다.
 - canonical_id: REQ-045
   status: data-constraint
-  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7)
-    YYYY-MM, use_yn Y 또는 N을 유지한다.
+  evidence: DB 공통 자료형 — 금액 _amt BIGINT(원·부가세 제외), 일시 _at TIMESTAMP, 연월 _ym CHAR(7) YYYY-MM, use_yn Y 또는 N을 유지한다.
 - canonical_id: REQ-046
   status: data-constraint
-  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB
-    기본값, updated_at은 앱 갱신이며 created_by·updated_by는 BIGINT로 현재 NULL이다.
+  evidence: 키와 감사 컬럼 규칙 — 자동 PK는 GENERATED BY DEFAULT AS IDENTITY, created_at은 DB 기본값, updated_at은 앱 갱신이며 created_by·updated_by는
+    BIGINT로 현재 NULL이다.
 - canonical_id: REQ-047
   status: data-constraint
-  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로
-    실행할 것을 요구한다. 엔티티는 해당 테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
+  evidence: JPA 테이블 매핑·검증 — 본문은 JPA 엔티티의 @Table(schema, name)에 원본 이름을 쓰고 ddl-auto=validate로 실행할 것을 요구한다. 엔티티는 해당
+    테이블 사용 문서에서 만든다. OQ-001 해결 전 MyBatis로 임의 변환하지 않는다.
 - canonical_id: REQ-048
   status: data-constraint
-  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본
-    스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA ... CASCADE 줄만 제거한다.
+  evidence: V1 스키마 복사 — backend/src/main/resources/db/migration/V1__schema.sql은 원본 스키마를 그대로 복사하되 맨 앞 재실행용 DROP SCHEMA
+    ... CASCADE 줄만 제거한다.
 - canonical_id: REQ-049
   status: data-constraint
   evidence: V2 마감 시드 — V2__seed_month_close.sql로 fin.mth_cls 초기 데이터를 넣는다.
@@ -3020,8 +4481,7 @@ x-requirement-accounting:
   evidence: 마이그레이션 불변성 — 이후 문서는 테이블을 새로 만들지 않고 변경 시 V3부터 추가하며 V1·V2는 수정하지 않는다.
 - canonical_id: REQ-051
   status: data-constraint
-  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성
-    범위를 혼동하지 않는다.
+  evidence: 이번 엔티티 범위 — 이번 단계의 엔티티는 sys.menu와 fin.mth_cls만 만든다. 전체 스키마 생성과 엔티티 작성 범위를 혼동하지 않는다.
 - canonical_id: REQ-052
   status: data-constraint
   evidence: 기간 유형의 로컬 등록 — period_type은 DB가 아닌 src/screens/registry.ts에 둔다.
@@ -3036,36 +4496,32 @@ x-requirement-accounting:
   evidence: getMenus, getMonthClose
 - canonical_id: REQ-056
   status: non-functional
-  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를
-    받고 { items, total, page, size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의
-    적용 차이는 OQ-002 확인 필요이다.'
+  evidence: '목록 페이지·정렬 공통 계약 — 공통 코드 책임; 독립 HTTP 자원 없음: 목록 API는 page·size(20|50|100)·sort를 받고 { items, total, page,
+    size }를 반환하며 건수·정렬은 서버 전체 기준이다. 메뉴 트리와 월 범위 API의 배열 응답과의 적용 차이는 OQ-002 확인 필요이다.'
 - canonical_id: REQ-057
   status: covered
   evidence: getMenus, getMonthClose
 - canonical_id: REQ-058
   status: screen-only
-  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도
-    가능하며 입력 유지. requestId를 못 받은 경우 문구는 OQ-006.'
+  evidence: '실패 화면과 입력 유지 — 프론트 소유: 서버 500 -> 빨간 띠와 문의 번호·기존 입력 유지. 연결 끊김 -> 다시 시도 가능하며 입력 유지. requestId를 못 받은 경우
+    문구는 OQ-006.'
 - canonical_id: REQ-059
   status: data-constraint
-  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의
-    mbl_expsr_yn은 N이다.
+  evidence: 메뉴 시드 및 모바일 속성 — V1에 sys.menu 묶음 10행(menu_id 1~10)과 화면 31행을 포함한다. UI-10·20·14·23·24·25·27의 mbl_expsr_yn은
+    N이다.
 - canonical_id: REQ-060
   status: data-constraint
-  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00),
-    2026-10 OPEN이다.
+  evidence: 월마감 상태 시드 — fin.mth_cls는 2026-01~2026-09 CLOSED(cls_at은 각 다음 달 5일 00:00), 2026-10 OPEN이다.
 - canonical_id: REQ-061
   status: data-constraint
-  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14,
-    YEAR_CUM은 UI-07·08·09·18, 나머지는 NONE이다.
+  evidence: 화면별 기간 유형 목록 — YEAR는 UI-01·12·05·11·28·17·13·03·04·10·21, MONTH는 UI-19·20·14, YEAR_CUM은 UI-07·08·09·18,
+    나머지는 NONE이다.
 - canonical_id: REQ-062
   status: screen-only
-  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자
-    메뉴 -> 목록 기본 건수 설정.'
+  evidence: '헤더와 기본 사용자 설정 진입 — 프론트 소유: 로고 클릭 -> /UI-16. 알림 클릭 -> 새 알림이 없습니다. 사용자 메뉴 -> 목록 기본 건수 설정.'
 - canonical_id: REQ-063
   status: screen-only
-  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과
-    함께 확인한다.'
+  evidence: '즐겨찾기 추가·해제 — 프론트 소유: 제목줄 ☆로 즐겨찾기 상태 변경 -> 목록에 반영. 새로고침 후 등록 상태 복원은 REQ-028과 함께 확인한다.'
 - canonical_id: REQ-064
   status: screen-only
   evidence: '즐겨찾기 순서 변경 — 프론트 소유: 즐겨찾기 행을 다른 위치로 끌기 -> 목록 순서 변경. 새로고침 -> 변경 순서 유지.'
@@ -3074,35 +4530,31 @@ x-requirement-accounting:
   evidence: '최근 본 화면 — 프론트 소유: 서로 다른 6개 화면 방문 -> 최근 본 목록 최대 5개. 재방문 중복 처리 세부 규칙은 OQ-004.'
 - canonical_id: REQ-066
   status: screen-only
-  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침
-    없음.'
+  evidence: '2단 메뉴 탐색 — 프론트 소유: 메뉴 화면 클릭 -> 해당 /{화면ID}. 대시보드 클릭 -> /UI-16이며 하위 펼침 없음.'
 - canonical_id: REQ-067
   status: screen-only
-  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘
-    복원.'
+  evidence: '접힌 메뉴 동작 — 프론트 소유: PC에서 접기 -> 64px 아이콘 메뉴. hover -> 옆 2단 메뉴. 새로고침 후 접힘 복원.'
 - canonical_id: REQ-068
   status: screen-only
-  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복
-    생성 없음.'
+  evidence: '탭 열기·전환 — 프론트 소유: 새 화면 메뉴 클릭 -> 해당 탭 추가. 이미 열린 메뉴 재선택 -> 기존 탭 활성화·중복 생성 없음.'
 - canonical_id: REQ-069
   status: screen-only
-  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소
-    -> 기존 탭 집합 유지. LRU 후보·승인 순서는 OQ-004.'
+  evidence: '8개 탭 상한 확인 — 프론트 소유: 8개 상태에서 9번째 탭 열기 -> LRU 닫기 확인 창(FR-001 AC-02). 취소 -> 기존 탭 집합 유지. LRU 후보·승인 순서는
+    OQ-004.'
 - canonical_id: REQ-070
   status: screen-only
   evidence: '화면 제목줄 — 프론트 소유: 화면 이동 -> 현재 묶음·화면명·화면 ID를 제목줄에서 확인한다.'
 - canonical_id: REQ-071
   status: screen-only
-  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적.
-    최초 진입 -> Asia/Seoul 오늘 연월. 새로고침 보존 범위는 OQ-004.'
+  evidence: '화면별 기간 선택·기억 — 프론트 소유: UI-19 월 변경 후 다른 MONTH 화면 방문 -> 두 화면의 선택이 독립적. 최초 진입 -> Asia/Seoul 오늘 연월. 새로고침
+    보존 범위는 OQ-004.'
 - canonical_id: REQ-072
   status: screen-only
-  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 ->
-    작업중 배지(FR-001 AC-03). 전월 조정 업무는 새로 구현하지 않는다.'
+  evidence: '월마감 배지와 안내 — 프론트 소유: UI-19에서 2026-09 선택 -> 마감 배지·잠금 띠. 2026-10 선택 -> 작업중 배지(FR-001 AC-03). 전월 조정 업무는
+    새로 구현하지 않는다.'
 - canonical_id: REQ-073
   status: screen-only
-  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를
-    만들지 않는다.'
+  evidence: '업무 화면 자리 표시 — 프론트 소유: 31개 화면을 열면 업무 기능 대신 자리 안내가 있다. NONE 화면은 기간 선택기를 만들지 않는다.'
 - canonical_id: REQ-074
   status: covered
   evidence: getMenus
@@ -3114,8 +4566,7 @@ x-requirement-accounting:
   evidence: getHealth
 - canonical_id: REQ-077
   status: screen-only
-  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙
-    우선.'
+  evidence: '버튼 부품 — 프론트 소유: 일반 화면에서 위험 버튼 노출 없음. 기본 36px·작게 28px이며 휴대폰은 44px 공통 규칙 우선.'
 - canonical_id: REQ-078
   status: screen-only
   evidence: '입력 부품과 폼 배치 — 프론트 소유: 1280px -> 제목 120px·2열. 375px -> 제목 위·1열.'
@@ -3124,57 +4575,51 @@ x-requirement-accounting:
   evidence: '공통 표 — 프론트 소유: 표 내부 세로 구분선 없음. 스크롤 중 제목 행 고정·total 표시.'
 - canonical_id: REQ-080
   status: screen-only
-  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는
-    상태에 맞게 흐리다.'
+  evidence: '페이지 줄 — 프론트 소유: 118건·50건씩 첫 페이지 -> 1-50 / 118건. 번호는 최대 10개이고 끝 이동 화살표는 상태에 맞게 흐리다.'
 - canonical_id: REQ-081
   status: screen-only
-  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터
-    필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
+  evidence: '조회 조건 줄과 조회 실행 — 프론트 소유: 입력에서 Enter -> 조회 이벤트. 조회 클릭 -> 같은 조회 이벤트. 필터 필드와 실제 API 연결은 이후 업무 문서에서 정한다.'
 - canonical_id: REQ-082
   status: screen-only
   evidence: '탭·배지 부품 — 프론트 소유: 밑줄 탭 구성 최대 5개와 지정 상태 팔레트·구분형 테두리를 확인한다.'
 - canonical_id: REQ-083
   status: screen-only
-  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의
-    크기 적용은 OQ-004.'
+  evidence: '확인·작업 창 — 프론트 소유: 작업 창 바깥 클릭 -> 열린 상태 유지. 확인 창 -> 400px 기준; 좁은 viewport의 크기 적용은 OQ-004.'
 - canonical_id: REQ-084
   status: screen-only
   evidence: '토스트·잠금 띠 — 프론트 소유: 일반 토스트 -> 3초 후 사라짐. 오류 -> 토스트 대신 빨간 띠. 잠금 띠 -> 회색.'
 - canonical_id: REQ-085
   status: screen-only
-  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속
-    문서 확인.'
+  evidence: '로딩·빈 상태 — 프론트 소유: 첫 요청 대기 -> 스켈레톤. 빈 결과 -> 이유·관련 행동 버튼. 업무별 문구·동작은 후속 문서 확인.'
 - canonical_id: REQ-086
   status: non-functional
-  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드
-    화면 문서에서 처음 사용한다.'
+  evidence: '공통 부품 경로와 첫 사용 — 상위 계약·후속 구현 책임: 공통 부품은 frontend/src/components에 두고 공통코드 화면 문서에서 처음 사용한다.'
 - canonical_id: REQ-087
   status: out-of-scope
   evidence: 별도 견본 화면 제외 — 공통 부품만을 위한 별도 견본 화면은 만들지 않는다.
 - canonical_id: REQ-088
   status: non-functional
-  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend
-    Java 17 + Spring Boot, Database PostgreSQL, Infrastructure Docker Compose를 고정한다.'
+  evidence: '고정 기술스택 계약 — 상위 계약·후속 구현 책임: Frontend React + TypeScript + Vite, Backend Java 17 + Spring Boot, Database
+    PostgreSQL, Infrastructure Docker Compose를 고정한다.'
 - canonical_id: REQ-089
   status: non-functional
-  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와
-    파생 projection이고 독립 SSOT가 아니다. 이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
+  evidence: '실행·영속성 seed의 지위 — 상위 계약·후속 구현 책임: 요청의 marker block은 초기 seed contract와 파생 projection이고 독립 SSOT가 아니다.
+    이후 plan.md의 동일 marker JSON이 9개 문서의 semantic SSOT이다.'
 - canonical_id: REQ-090
   status: non-functional
-  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x,
-    react 18.x, postgres 16.x를 유지한다.'
+  evidence: 'Version BOM — 상위 계약·후속 구현 책임: spring_boot 3.3.x, node 20.x, vite 5.x, react 18.x, postgres 16.x를 유지한다.'
 - canonical_id: REQ-091
   status: non-functional
-  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend,
-    compose_file=infra/docker-compose.yml, health_endpoint=/api/health를 유지한다.'
+  evidence: '필수 산출물 경로 — 상위 계약·후속 구현 책임: backend_dir=backend, frontend_dir=frontend, compose_file=infra/docker-compose.yml,
+    health_endpoint=/api/health를 유지한다.'
 - canonical_id: REQ-092
   status: screen-only
-  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용
-    규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을 자동 승인하지 않는다.'
+  evidence: 'UI 레퍼런스 적용 — 프론트 소유: 후속 ui-design.md에서 시각 특징·레이아웃·CTA/색상/이미지와 도메인 적용 규칙을 근거로 정리한다. 이번 범위 밖 대시보드 기능을
+    자동 승인하지 않는다.'
 - canonical_id: REQ-093
   status: non-functional
-  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를
-    쓰고 후속 plan.md·tasks.md·ui-design.md는 원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
+  evidence: '단계별 문서 책임 — 상위 계약·후속 구현 책임: spec.md에는 기술스택·필수 산출물·backend/frontend 범위를 쓰고 후속 plan.md·tasks.md·ui-design.md는
+    원문에 지정된 구조·작업·레퍼런스·seed SSOT 책임을 수행한다.'
 - canonical_id: REQ-094
   status: non-functional
   evidence: '신규 구현의 backend 필수 — 상위 계약·후속 구현 책임: backend/ 변경이 없는 신규생성 구현은 불완전하다.'
@@ -3186,28 +4631,207 @@ x-requirement-accounting:
   evidence: 'DB 기준 필수 — 상위 계약·후속 구현 책임: 신규생성 구현에는 DB 스키마 또는 migration 기준이 있어야 한다.'
 - canonical_id: REQ-097
   status: data-constraint
-  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께
-    확인한다.
+  evidence: 화면·API 동시 검증 — preview 또는 quickstart 검증은 backend API와 frontend 화면을 함께 확인한다.
 - canonical_id: REQ-098
   status: non-functional
-  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를
-    두고 node_modules, .git, dist, build, .next, coverage를 제외한다.'
+  evidence: 'Compose 빌드 컨텍스트 제외 — 상위 계약·후속 구현 책임: 각 Compose build context 디렉터리에 .dockerignore를 두고 node_modules,
+    .git, dist, build, .next, coverage를 제외한다.'
 - canonical_id: REQ-099
   status: screen-only
-  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가
-    가능. 초과 시 안내 문구는 OQ-004.'
+  evidence: '즐겨찾기 10개 제한 — 프론트 소유: 즐겨찾기 10개 상태에서 추가 시도 -> 목록은 10개 유지. 10개 미만에서는 추가 가능. 초과 시 안내 문구는 OQ-004.'
 - canonical_id: REQ-100
   status: screen-only
-  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의
-    열린 탭 재선택도 상태를 초기화하지 않는다.'
+  evidence: '탭별 화면 상태 유지 — 프론트 소유: 한 탭의 상태를 바꾸고 다른 탭에 갔다가 복귀 -> 기존 화면 상태 그대로. 같은 화면의 열린 탭 재선택도 상태를 초기화하지 않는다.'
 - canonical_id: REQ-101
   status: screen-only
-  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지
-    않는다. LRU의 후보 결정 세부는 OQ-004.'
+  evidence: '대시보드 탭 닫기 금지 — 프론트 소유: 대시보드 탭에는 닫기 버튼이 없다. 탭 초과 처리에서도 대시보드를 닫을 대상으로 확정하지 않는다. LRU의 후보 결정 세부는 OQ-004.'
 - canonical_id: REQ-102
   status: screen-only
-  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로
-    돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
+  evidence: '조회 조건 초기화 — 프론트 소유: 초기화 클릭 -> 부품에서 초기화 이벤트 발생. 초기값이 주어진 시험에서는 조건이 그 초기값으로 돌아간다. 미지정 기본값은 임의 확정하지 않는다.'
+- canonical_id: REQ-103
+  status: non-functional
+  evidence: 전 operation security=[] 및 무인증 시험으로 제약. 독립 인증/권한 endpoint가 아님.
+  reason: 전 operation security=[] 및 무인증 시험으로 제약. 독립 인증/권한 endpoint가 아님.
+- canonical_id: REQ-104
+  status: out-of-scope
+  evidence: 영업 파트·엑셀 업로드/양식/다운로드는 명시 제외. 신규 endpoint 없음.
+  reason: 영업 파트·엑셀 업로드/양식/다운로드는 명시 제외. 신규 endpoint 없음.
+- canonical_id: REQ-105
+  status: out-of-scope
+  evidence: 열 설정·좁게 보기·카드 표는 표시 기능 명시 제외. 서버 endpoint 없음.
+  reason: 열 설정·좁게 보기·카드 표는 표시 기능 명시 제외. 서버 endpoint 없음.
+- canonical_id: REQ-106
+  status: data-constraint
+  evidence: 'data-model.md 소유: 기존 V1 mst.ptnr·감사 테이블 재사용·V1/V2/테이블 재고 보존. HTTP 스키마 생성 API가 아님.'
+  reason: 'data-model.md 소유: 기존 V1 mst.ptnr·감사 테이블 재사용·V1/V2/테이블 재고 보존. HTTP 스키마 생성 API가 아님.'
+- canonical_id: REQ-107
+  status: non-functional
+  evidence: 'DEC-PTNR-001: MyBatis 유지: 이전 세션의 명시적 사용자 선택과 backend/pom.xml의 실제 MyBatis starter를 따른다. schema.table을
+    명시한 Mapper SQL을 사용하며 JPA/@Table/ddl-auto를 추가하지 않는다. 원문 문장은 출처로 보존한다(REQ-107).'
+  reason: 'DEC-PTNR-001: MyBatis 유지: 이전 세션의 명시적 사용자 선택과 backend/pom.xml의 실제 MyBatis starter를 따른다. schema.table을
+    명시한 Mapper SQL을 사용하며 JPA/@Table/ddl-auto를 추가하지 않는다. 원문 문장은 출처로 보존한다(REQ-107).'
+- canonical_id: REQ-108
+  status: non-functional
+  evidence: 'architecture.md/ui-design.md 소유: shell·공통 부품·기존 합격 기준·useCodes external binding 재사용. 코드 조회 endpoint를
+    신규 발명하지 않음.'
+  reason: 'architecture.md/ui-design.md 소유: shell·공통 부품·기존 합격 기준·useCodes external binding 재사용. 코드 조회 endpoint를
+    신규 발명하지 않음.'
+- canonical_id: REQ-109
+  status: covered
+  evidence: getPartners, createPartner
+- canonical_id: REQ-110
+  status: covered
+  evidence: updatePartner
+- canonical_id: REQ-111
+  status: covered
+  evidence: createPartner
+- canonical_id: REQ-112
+  status: covered
+  evidence: createPartner, updatePartner
+- canonical_id: REQ-113
+  status: covered
+  evidence: createPartner, updatePartner
+- canonical_id: REQ-114
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-115
+  status: covered
+  evidence: updatePartner, getPartnerHistory
+- canonical_id: REQ-116
+  status: covered
+  evidence: createPartner, getPartnerHistory
+- canonical_id: REQ-117
+  status: covered
+  evidence: updatePartner, getPartnerHistory
+- canonical_id: REQ-118
+  status: covered
+  evidence: disablePartners, getPartnerHistory
+- canonical_id: REQ-119
+  status: covered
+  evidence: enablePartner, getPartnerHistory
+- canonical_id: REQ-120
+  status: non-functional
+  evidence: 'architecture.md 소유: 각 operation x-permission-key의 UI-15 read/create/update/delete 연결 자리. can=true이며
+    권한 관리 API/역할 거부 없음.'
+  reason: 'architecture.md 소유: 각 operation x-permission-key의 UI-15 read/create/update/delete 연결 자리. can=true이며 권한
+    관리 API/역할 거부 없음.'
+- canonical_id: REQ-121
+  status: covered
+  evidence: createPartner, updatePartner
+- canonical_id: REQ-122
+  status: screen-only
+  evidence: 'ui-design.md 소유: 767px 이하 변경 CTA 숨김·가로 스크롤. API 단말/권한 거부로 전환하지 않음.'
+  reason: 'ui-design.md 소유: 767px 이하 변경 CTA 숨김·가로 스크롤. API 단말/권한 거부로 전환하지 않음.'
+- canonical_id: REQ-123
+  status: covered
+  evidence: getPartners, getPartnerAssignments
+- canonical_id: REQ-124
+  status: covered
+  evidence: getPartners, getPartnerAssignments
+- canonical_id: REQ-125
+  status: covered
+  evidence: disablePartners
+- canonical_id: REQ-126
+  status: covered
+  evidence: createPartner, updatePartner, disablePartners, enablePartner
+- canonical_id: REQ-127
+  status: data-constraint
+  evidence: 'data-model.md/quickstart.md 소유: V3__seed_bank.sql BANK10종·sort_seq 검증. 코드 생성/조회 API를 신규 추가하지 않음.'
+  reason: 'data-model.md/quickstart.md 소유: V3__seed_bank.sql BANK10종·sort_seq 검증. 코드 생성/조회 API를 신규 추가하지 않음.'
+- canonical_id: REQ-128
+  status: data-constraint
+  evidence: 'data-model.md/quickstart.md 소유: 거래처 운영 seed 없음·API fixture와 프로젝트/개발자/투입 테스트SQL 분리. fixture endpoint
+    아님.'
+  reason: 'data-model.md/quickstart.md 소유: 거래처 운영 seed 없음·API fixture와 프로젝트/개발자/투입 테스트SQL 분리. fixture endpoint 아님.'
+- canonical_id: REQ-129
+  status: non-functional
+  evidence: 'quickstart.md 소유: V3 기동·기존/거래처 합격 기준 실제 시험. 완료상태 endpoint 아님.'
+  reason: 'quickstart.md 소유: V3 기동·기존/거래처 합격 기준 실제 시험. 완료상태 endpoint 아님.'
+- canonical_id: REQ-130
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-131
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-132
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-133
+  status: screen-only
+  evidence: 'ui-design.md 소유: 행은 상세·0초과 건수는 투입 탭으로 진입·0링크 없음. 기존 getPartner/getPartnerAssignments 소비이며 별도 조회 action
+    wire 아님.'
+  reason: 'ui-design.md 소유: 행은 상세·0초과 건수는 투입 탭으로 진입·0링크 없음. 기존 getPartner/getPartnerAssignments 소비이며 별도 조회 action
+    wire 아님.'
+- canonical_id: REQ-134
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-135
+  status: covered
+  evidence: getPartners
+- canonical_id: REQ-136
+  status: screen-only
+  evidence: 'ui-design.md 소유: 같은 탭 등록폼·취소·저장 표시. 취소는 HTTP 호출 없이 목록 복귀.'
+  reason: 'ui-design.md 소유: 같은 탭 등록폼·취소·저장 표시. 취소는 HTTP 호출 없이 목록 복귀.'
+- canonical_id: REQ-137
+  status: covered
+  evidence: createPartner
+- canonical_id: REQ-138
+  status: covered
+  evidence: createPartner
+- canonical_id: REQ-139
+  status: screen-only
+  evidence: 'ui-design.md 소유: field 오류 표시·첫 오류 focus·입력 유지·CMN-402 이탈 확인. 별도 오류/취소 API 없음.'
+  reason: 'ui-design.md 소유: field 오류 표시·첫 오류 focus·입력 유지·CMN-402 이탈 확인. 별도 오류/취소 API 없음.'
+- canonical_id: REQ-140
+  status: covered
+  evidence: getPartner
+- canonical_id: REQ-141
+  status: covered
+  evidence: getPartnerAssignments
+- canonical_id: REQ-142
+  status: covered
+  evidence: getPartnerHistory
+- canonical_id: REQ-143
+  status: screen-only
+  evidence: 'DEC-PTNR-002: 사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+    연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143, REQ-144).'
+  reason: 'DEC-PTNR-002: 사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+    연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143, REQ-144).'
+- canonical_id: REQ-144
+  status: covered
+  evidence: updatePartner
+- canonical_id: REQ-145
+  status: covered
+  evidence: updatePartner
+- canonical_id: REQ-146
+  status: screen-only
+  evidence: 'ui-design.md 소유: 기존 계좌 변경 확인/취소·입력 유지. 취소 시 PUT 없음, 첫계좌 확인 없음. 서버 확인 token/API를 발명하지 않음.'
+  reason: 'ui-design.md 소유: 기존 계좌 변경 확인/취소·입력 유지. 취소 시 PUT 없음, 첫계좌 확인 없음. 서버 확인 token/API를 발명하지 않음.'
+- canonical_id: REQ-147
+  status: covered
+  evidence: updatePartner
+- canonical_id: REQ-148
+  status: screen-only
+  evidence: 'ui-design.md 소유: 체크·쪽전체 선택·더보기·중지 확인창. 취소는 호출 없음; 확인 후 disablePartners 소비.'
+  reason: 'ui-design.md 소유: 체크·쪽전체 선택·더보기·중지 확인창. 취소는 호출 없음; 확인 후 disablePartners 소비.'
+- canonical_id: REQ-149
+  status: covered
+  evidence: disablePartners
+- canonical_id: REQ-150
+  status: covered
+  evidence: disablePartners
+- canonical_id: REQ-151
+  status: covered
+  evidence: disablePartners
+- canonical_id: REQ-152
+  status: covered
+  evidence: enablePartner
+- canonical_id: REQ-153
+  status: covered
+  evidence: disablePartners, getPartnerOptions
+- canonical_id: REQ-154
+  status: covered
+  evidence: getPartnerOptions
 x-source-schema:
   repo: https://github.com/MinHeeJ/cost_calculation
   ref: main
@@ -3215,14 +4839,54 @@ x-source-schema:
   path: example/si_cost_schema_pg16_std.sql
   sha256: f654190eb098a554f24d79a43aae594f1b2ca2ac7df957c0af62a0c90931a32a
   download_exact_match: true
-x-basic92-change-scope:
-  description: BASIC-91 원문 operation·과거 제외 행은 이력 그대로 보존한다. 이번 BASIC-92의 UI-27 공통코드
-    delta에만 신규13개 계약이 우선한다. 기존 x-mutation-scope의 변이 제외·sys.menu/fin.mth_cls 전용 범위는
-    과거 기반 단계 설명이며 본 신규 경로에는 적용하지 않는다.
-  authentication: 신규 모든 operation security=[]; 기존 bearerAuth 선언 보존, x-roles 및401/403
-    없음.
-  persistence-approval: 기존 사용자 선택과 실제 기반 코드에 따라 MyBatis 유지. 이번5개cmn 테이블 매핑을 추가한다.
-  excel-history-approval: 대응 그룹/코드와 item_nm=excel_map.{map_id}.{field}로 기록. 코드·그룹·기준값
-    이력 규칙은 그대로다.
-  pagination: REQ-056 공통 목록 규칙에서 코드·그룹·대응·현재기준·전체기준이력은 원문 전체 집합으로 예외 명시. 변경 이력만 page/size/sort와
-    items/total/page/size·기본50 적용.
+x-partner-contract-decisions:
+  status: clarification_required
+  wire-naming: 기존 MenuNode.menuId/screenId·Meta.requestId의 camelCase 관례. source column snake_case를 ptnrSeCd/ptnrNm/bizRegNo/bankCd/acntNo로
+    변환; 옵션은 명시된 id/no/name. ApiError.field는 해당 wire 키. 원문 clmn_nm 값은 snake_case 그대로.
+  external-bindings:
+  - PARTNER_KIND·INDUSTRY·BANK·JOB은 기존 useCodes·cmn.cd_dtl 참조. 신규 코드조회 endpoint 아님.
+  unresolved:
+    OQ-PTNR-001: '@Table/JPA 요청과 MyBatis 정본 충돌; 새 persistence 구현 전 reviewer 결정. HTTP 의미 계약과 순수 UI는 진행.'
+    OQ-PTNR-002: 연결된 역할 제거 허용/거부·연결 처리 추정 미승인. 해당 전이 시험만 차단.
+    OQ-PTNR-003: 잘못된 사업자번호 정정 추정 미승인. 불변·중지번호 중복 금지는 유지, 재할당 예외 API 없음.
+    OQ-PTNR-004: ptnr_no NOT NULL 중간 INSERT와 INSERT 후 C-id 채움 충돌. 실제 V1 preflight·호환 방식 승인 전 등록 persistence assertion
+      차단.
+    OQ-PTNR-005: 이미 Y enable의 상태 코드·이력 정책 미정. N->Y 계약만 확정.
+    OQ-PTNR-006: page 시작/기본값·sort 문법·전체 useYn wire·다건 결과 필드 및 미정 오류/실패 단위는 실제 DEC-005 공통 구현 대조·reviewer 승인 필요. 기본50·부분성공·단건409
+      의미 확정. 결과 필드는 검토 후보이며 승인 전 제품 확정 아님.
+x-basic93-review-decisions:
+  DEC-PTNR-001: 'MyBatis 유지: 이전 세션의 명시적 사용자 선택과 backend/pom.xml의 실제 MyBatis starter를 따른다. schema.table을 명시한 Mapper
+    SQL을 사용하며 JPA/@Table/ddl-auto를 추가하지 않는다. 원문 문장은 출처로 보존한다(REQ-107).'
+  DEC-PTNR-002: '사용자 확정: 구분 변경 허용, 기존 연결 유지. 진행 프로젝트나 유효한 소속 인력이 있어도 구분 변경을 허용하며 prj.cust_ptnr_id·mst.dev.vndr_ptnr_id·asgn
+    연결은 수정/삭제하지 않는다. 새 구분의 필수 검증과 비해당 필드 NULL 정리만 적용한다. 역할 제거를 이유로 409를 추가하지 않는다(REQ-112, REQ-113, REQ-143, REQ-144).'
+  DEC-PTNR-003: 원문 번호 불변·중지 번호 중복 금지를 그대로 적용한다. 잘못된 번호는 중지 후 미사용 올바른 번호로 신규 등록하며 기존 번호의 재할당·정정 예외는 추가하지 않는다. 올바른
+    번호가 이미 있으면 그 거래처를 수정/재사용한다. 추정 답변을 사용자 승인으로 기록하지 않는다(REQ-110, REQ-111).
+  DEC-PTNR-004: 실제 V1의 ptnr_id는 GENERATED BY DEFAULT AS IDENTITY, ptnr_no는 NOT NULL이며 기본값이 없다. 동일 트랜잭션에서 nextval(pg_get_serial_sequence('mst.ptnr','ptnr_id'))로
+    ID를 확보하고 최소3자리 코드와 함께 단일 INSERT한 뒤 INSERT 감사1줄을 저장한다. C-001·C-999·C-1000·C-10000을 보존하며 lpad로 긴 ID를 자르지 않는다.
+    DDL/임시번호/NULL 중간 행은 없다. 실패 시 본체·감사를 함께 rollback하고 sequence gap은 허용한다(REQ-106, REQ-116, REQ-138).
+  DEC-PTNR-005: '미지정 반복 요청의 구현 기본값: enable은 N→Y일 때만 UPDATE(use_yn) 감사1줄. 이미 Y이면 200으로 현재 상세를 반환하고 updated_at·감사를
+    변경하지 않는다. UI CTA는 N에서만 표시한다. 추가 사용자 승인 사실로 기록하지 않는다(REQ-119, REQ-152).'
+  DEC-PTNR-006: 실제 PageResult와 맞춰 page=1부터, 기본1, size=20/50/100·기본50으로 정한다. sort는 allowlist 필드와 asc/desc의 쉼표 표현이며
+    기본 ptnr_nm,asc, 동률 ptnr_id ASC다. 사용 전체는 useYn=ALL, 생략은 Y. 다건 결과는 disabledIds/disabledCount/inUseCount/alreadyDisabledCount/excluded(id,name,reason,ongoingProjectCount,affiliatedDeveloperCount)이다.
+    ids는 입력순 중복 제거, 일부 미존재면 DML 전404. 업무상 제외는 부분 성공200(중복 제거 후 한 건 거래 잔여는409); 기술/감사 실패는 변경 가능한 집합 전체 rollback한다.
+    미지정 세부사항의 구현 기본값이며 사용자 승인으로 꾸미지 않는다(REQ-134, REQ-150, REQ-151).
+x-preserved-upstream-context:
+  repository: https://github.com/MinHeeJ/cost_calculation
+  commit: 5701c0f7662933b390105bf067d5be924fa2806a
+  evidence: 대상 main 5701c0f7662933b390105bf067d5be924fa2806a에는 BASIC-92가 이미 병합되어 있다. frontend/src/api/apiClient.ts가
+    기존 pages/commoncode/useCodes.ts의 useCodes(group)를 재노출하며 {data,error,loading,retry}를 반환한다. 기존 GET /api/codes/{group}의
+    단일 ApiResponse.data는 [{code,name,attr1,attr2,attr3}]다. PARTNER_KIND/INDUSTRY/BANK/JOB 선택지는 이 바인딩을 재사용하며 별도 코드
+    조회 구현을 추가하지 않는다. BASIC-92의 공통 코드·운영 기준·엑셀 매핑·params API와 화면은 그대로 보존한다. 이 문서의 기존 GET3+신규거래처9는 변경 계약의 범위이며 전체
+    저장소의 API 총수가 아니다.
+  external_bindings:
+  - operationId: getCodes
+    path: /api/codes/{group}
+    method: GET
+    envelope: ApiResponse<List<CodeChoice>>
+    data_fields:
+    - code
+    - name
+    - attr1
+    - attr2
+    - attr3
+    frontend_hook: useCodes(group) -> {data,error,loading,retry}

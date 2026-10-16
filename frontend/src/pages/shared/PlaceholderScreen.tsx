@@ -5,6 +5,7 @@ import { TitleBar } from "./TitleBar";
 import { PeriodBar } from "./PeriodBar";
 import styles from "./Shared.module.css";
 import { CommonCodeScreen } from "../commoncode/CommonCodeScreen";
+import { PartnerSalesPartScreen } from "../../screens/partners/PartnerSalesPartScreen";
 
 /** Every canonical route shares this placeholder; mobile aliases are not separate routes. */
 export function PlaceholderScreen({
@@ -35,6 +36,8 @@ export function PlaceholderScreen({
         <PeriodBar screen={screen} />
         {screen.screenId === "UI-27" ? (
           <CommonCodeScreen />
+        ) : screen.screenId === "UI-15" ? (
+          <PartnerSalesPartScreen />
         ) : (
           <div className={styles.placeholder}>
             <PanelsTopLeft size={32} strokeWidth={1.5} aria-hidden="true" />
