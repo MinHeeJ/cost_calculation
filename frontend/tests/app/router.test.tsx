@@ -99,6 +99,44 @@ const menus: MenuNode[] = [
       })),
   },
 ];
+const codeGroups = [
+  {
+    cd_grp_id: "JOB",
+    cd_grp_nm: "직무",
+    cd_grp_se_cd: "BIZ",
+    attr1_nm: "기본 단가(원)",
+    attr2_nm: null,
+    attr3_nm: null,
+    sort_seq: 1,
+    use_yn: "Y",
+    code_count: 1,
+  },
+];
+const codeRows = [
+  {
+    cd_grp_id: "JOB",
+    dtl_cd: "BE",
+    cd_nm: "백엔드",
+    attr1_val: "200000",
+    attr2_val: null,
+    attr3_val: null,
+    sort_seq: 1,
+    use_yn: "Y",
+    aply_bgn_dt: null,
+  },
+];
+function ok(data: unknown) {
+  return new Response(
+    JSON.stringify({
+      success: true,
+      data,
+      meta: { requestId: "route-request" },
+    }),
+    {
+      headers: { "X-Request-Id": "route-request" },
+    },
+  );
+}
 const routers: ReturnType<typeof createMemoryRouter>[] = [];
 function mount(path: string, history = [path], index = history.length - 1) {
   const router = createMemoryRouter(applicationRoutes, {
@@ -127,18 +165,21 @@ beforeEach(() => {
   vi.stubGlobal("innerWidth", 1440);
   vi.stubGlobal(
     "fetch",
-    vi.fn().mockImplementation(() =>
-      Promise.resolve(
-        new Response(
-          JSON.stringify({
-            success: true,
-            data: menus,
-            meta: { requestId: "route-request" },
-          }),
-          { headers: { "X-Request-Id": "route-request" } },
-        ),
-      ),
-    ),
+    vi.fn().mockImplementation((path: string) => {
+      if (path === "/api/menus") return Promise.resolve(ok(menus));
+      if (path === "/api/admin/code-groups")
+        return Promise.resolve(ok(codeGroups));
+      if (path === "/api/admin/code-groups/JOB/codes")
+        return Promise.resolve(ok(codeRows));
+      if (path === "/api/admin/excel-maps") return Promise.resolve(ok([]));
+      if (path === "/api/admin/operating-standards") {
+        return Promise.resolve(ok({ items: [], last_closed_ym: "2026-09" }));
+      }
+      if (path.startsWith("/api/admin/code-history?")) {
+        return Promise.resolve(ok({ items: [], total: 0, page: 1, size: 50 }));
+      }
+      return Promise.reject(new Error(`Unexpected request: ${path}`));
+    }),
   );
 });
 afterEach(() => {
@@ -153,7 +194,21 @@ it.each(ids)(
     expect(
       await screen.findByRole("heading", { name: `화면 ${id}`, level: 1 }),
     ).toBeVisible();
-    expect(screen.getByText("이 화면은 다음 단계에서 만듭니다.")).toBeVisible();
+    if (id === "UI-27") {
+      expect(await screen.findByDisplayValue("백엔드")).toBeVisible();
+      expect(
+        within(
+          screen.getByRole("tablist", { name: "공통코드 관리" }),
+        ).getAllByRole("tab"),
+      ).toHaveLength(4);
+      expect(
+        screen.queryByText("이 화면은 다음 단계에서 만듭니다."),
+      ).not.toBeInTheDocument();
+    } else {
+      expect(
+        screen.getByText("이 화면은 다음 단계에서 만듭니다."),
+      ).toBeVisible();
+    }
     expect(router.state.location.pathname).toBe(`/${id}`);
     expect(
       screen.getAllByRole("link", { name: "프로젝트·원가 관리" }),
@@ -250,4 +305,81 @@ it("뒤로 이동 취소는 URL·입력·탭·최근 순서를 보존하고 승�
   expect(
     await screen.findByRole("heading", { name: "화면 UI-03", level: 1 }),
   ).toBeVisible();
+});
+
+it("기존 메뉴로 공통코드에 진입해 네 탭의 실제 API를 사용한다", async () => {
+  const router = mount("/UI-16");
+  await screen.findByRole("heading", { name: "화면 UI-16", level: 1 });
+  fireEvent.click(screen.getByRole("button", { name: "업무" }));
+  fireEvent.click(screen.getByRole("link", { name: "화면 UI-27" }));
+  expect(await screen.findByDisplayValue("백엔드")).toBeVisible();
+  expect(router.state.location.pathname).toBe("/UI-27");
+  expect(
+    screen.getByRole("columnheader", { name: "기본 단가(원)" }),
+  ).toBeVisible();
+  expect(screen.getByRole("tab", { name: "코드" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(useShortcuts.getState().recent[0]).toBe("UI-27");
+  for (const [tab, path] of [
+    ["엑셀 표기 대응", "/api/admin/excel-maps"],
+    ["기준값", "/api/admin/operating-standards"],
+    ["변경 이력", "/api/admin/code-history?"],
+  ]) {
+    fireEvent.click(screen.getByRole("tab", { name: tab }));
+    await waitFor(() =>
+      expect(
+        vi
+          .mocked(fetch)
+          .mock.calls.some(([url]) => String(url).startsWith(path)),
+      ).toBe(true),
+    );
+    expect(screen.getByRole("tab", { name: tab })).toHaveAttribute(
+      "aria-selected",
+      "true",
+    );
+    expect(router.state.location.pathname).toBe("/UI-27");
+    expect(
+      await screen.findByText("조건에 맞는 결과가 없습니다"),
+    ).toBeVisible();
+  }
+  expect(vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method)).toBe(
+    true,
+  );
+});
+
+it("공통코드 초안은 메뉴와 브라우저 이동 취소 후 유지되고 승인 후에만 버린다", async () => {
+  const router = mount("/UI-27");
+  await screen.findByDisplayValue("백엔드");
+  fireEvent.change(screen.getByLabelText("이름 1"), {
+    target: { value: "저장 전 이름" },
+  });
+  expect(useNavigation.getState().dirty["UI-27"]).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "대시보드" }));
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "계속 작성" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(router.state.location.pathname).toBe("/UI-27");
+  expect(screen.getByDisplayValue("저장 전 이름")).toBeVisible();
+  await act(async () => {
+    void router.navigate("/UI-16");
+  });
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "계속 작성" }));
+  await waitFor(() =>
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+  );
+  expect(router.state.location.pathname).toBe("/UI-27");
+  expect(screen.getByDisplayValue("저장 전 이름")).toBeVisible();
+  fireEvent.click(screen.getByRole("button", { name: "대시보드" }));
+  fireEvent.click(await screen.findByRole("button", { name: "나가기" }));
+  await waitFor(() => expect(router.state.location.pathname).toBe("/UI-16"));
+  expect(useNavigation.getState().dirty["UI-27"]).not.toBe(true);
+  expect(screen.queryByTestId("common-code-screen")).not.toBeInTheDocument();
+  expect(vi.mocked(fetch).mock.calls.every(([, init]) => !init?.method)).toBe(
+    true,
+  );
 });
