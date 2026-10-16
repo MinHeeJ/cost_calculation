@@ -132,9 +132,11 @@ export function CommonCodeScreen() {
 
 function Grid({
   headers,
+  emptyText,
   children,
 }: {
   headers: string[];
+  emptyText?: string;
   children: ReactNode;
 }) {
   return (
@@ -147,7 +149,15 @@ function Grid({
             ))}
           </tr>
         </thead>
-        <tbody>{children}</tbody>
+        <tbody>
+          {emptyText ? (
+            <tr>
+              <td colSpan={headers.length}>{emptyText}</td>
+            </tr>
+          ) : (
+            children
+          )}
+        </tbody>
       </table>
     </div>
   );
@@ -255,12 +265,7 @@ function CodeEditor({
           수 없습니다.
         </p>
       )}
-      <RequestState
-        {...result}
-        empty={result.data?.length === 0 && !rows.length}
-        emptyReason={empty}
-        onRetry={result.retry}
-      />
+      <RequestState {...result} onRetry={result.retry} />
       {error && <ErrorBanner error={error} onRetry={save} />}
       {validation && (
         <p role="alert" className={styles.error}>
@@ -269,6 +274,14 @@ function CodeEditor({
       )}
       {success && <p role="status">공통코드를 저장했습니다.</p>}
       <Grid
+        emptyText={
+          !result.loading &&
+          !result.error &&
+          result.data?.length === 0 &&
+          !rows.length
+            ? empty
+            : undefined
+        }
         headers={[
           "코드",
           "이름",
@@ -425,14 +438,14 @@ function Maps({
         setDirty={setModalDirty}
         onSaved={result.retry}
       />
-      <RequestState
-        {...result}
-        empty={result.data?.length === 0}
-        emptyReason={empty}
-        onRetry={result.retry}
-      />
+      <RequestState {...result} onRetry={result.retry} />
       {error && <ErrorBanner error={error} onRetry={result.retry} />}
       <Grid
+        emptyText={
+          !result.loading && !result.error && result.data?.length === 0
+            ? empty
+            : undefined
+        }
         headers={["엑셀 표기", "바꾸는 값", "주/보조", "메모", "사용", "작업"]}
       >
         {result.data?.map((original) => {
@@ -513,13 +526,13 @@ function Standards({ setDirty }: { setDirty: DirtyPort }) {
   const [history, setHistory] = useState<OperatingStandard>();
   return (
     <div className={styles.stack}>
-      <RequestState
-        {...result}
-        empty={result.data?.items.length === 0}
-        emptyReason={empty}
-        onRetry={result.retry}
-      />
+      <RequestState {...result} onRetry={result.retry} />
       <Grid
+        emptyText={
+          !result.loading && !result.error && result.data?.items.length === 0
+            ? empty
+            : undefined
+        }
         headers={["항목", "지금 값·단위", "적용 시작월", "쓰는 곳", "작업"]}
       >
         {result.data?.items.map((row) => (
@@ -579,13 +592,15 @@ function StandardHistory({
       onClose={onClose}
       cancelLabel="닫기"
     >
-      <RequestState
-        {...result}
-        empty={result.data?.length === 0}
-        emptyReason={empty}
-        onRetry={result.retry}
-      />
-      <Grid headers={["적용 시작월", "값·단위"]}>
+      <RequestState {...result} onRetry={result.retry} />
+      <Grid
+        emptyText={
+          !result.loading && !result.error && result.data?.length === 0
+            ? empty
+            : undefined
+        }
+        headers={["적용 시작월", "값·단위"]}
+      >
         {result.data?.map((item) => (
           <tr key={item.aply_bgn_ym}>
             <td>{item.aply_bgn_ym}</td>
@@ -632,13 +647,13 @@ function History({ groups }: { groups: CodeGroup[] }) {
           <option value="PARAM">기준값</option>
         </select>
       </label>
-      <RequestState
-        {...result}
-        empty={result.data?.items.length === 0}
-        emptyReason={empty}
-        onRetry={result.retry}
-      />
+      <RequestState {...result} onRetry={result.retry} />
       <Grid
+        emptyText={
+          !result.loading && !result.error && result.data?.items.length === 0
+            ? empty
+            : undefined
+        }
         headers={[
           "일시",
           "그룹",
